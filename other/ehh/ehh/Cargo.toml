@@ -1,0 +1,25 @@
+[package]
+name = "ehh"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "3.0.7", features = ["derive"] }
+walkdir = "2"
+itertools = "0.10.3"
+log = "0.4.0"
+env_logger = "0.9.0"
+#bass-sys = "2.1.0"
+bass-sys = { git = "https://github.com/khang06/bass-sys" }
+sdl2 = { version = "0.35.1", features = ["bundled", "static-link"]}
+lodepng = "3.4.7"
+bassmix-sys = { path = "../bassmix-sys" }
+rgb = "0.8"
+#gl = "0.14.0"
+gl = { path = "../gl" }
+cgmath = "0.18.0"
+freetype-rs = "0.29.0"
+intervaltree = "0.2.7"
+bitflags = "1.3.2"

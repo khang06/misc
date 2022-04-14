@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+	"bassmix-sys",
+    "ehh",
+    "gl",
+]

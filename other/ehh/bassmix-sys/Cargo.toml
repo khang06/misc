@@ -1,0 +1,12 @@
+[package]
+name = "bassmix-sys"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libloading = "0.7.0"
+once_cell = "1.8.0"
+#bass-sys = "2.1.0"
+bass-sys = { git = "https://github.com/khang06/bass-sys" }
