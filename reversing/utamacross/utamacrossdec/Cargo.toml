@@ -1,0 +1,12 @@
+[package]
+name = "utamacrossdec"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.9.0"
+log = "0.4.17"
+regex = "1.5.6"
+walkdir = "2.3.2"
