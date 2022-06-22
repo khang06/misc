@@ -219,6 +219,10 @@ def main():
         jump_insn = "jnbe"
         swap_targets = True
         #swap_targets = False
+    elif results == [False, False, True, False, False, False, False, False, False, False]:
+        # branch if OF=1
+        jump_insn = "jo"
+        swap_targets = False
     elif results == [False, False, False, True, False, False, False, False, False, False]:
         # branch if DL=1
         reg_to_test = "dl"
