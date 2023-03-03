@@ -84,6 +84,7 @@ def try_solve(gates: int, input_count: int, truth_table: dict):
                                  input_count, r[i][k], output_expr)
             s.add(output_expr == v[j])
 
+    '''
     # Used to test other SMT solvers when Z3 is too slow
     with open("cur.smt2", "w") as smt2:
         smt2.write("(set-logic QF_BV)")
@@ -91,6 +92,7 @@ def try_solve(gates: int, input_count: int, truth_table: dict):
         smt2.write(s.sexpr())
         smt2.write("(check-sat)")
         smt2.write("(get-model)")
+    '''
 
     # Run the solver
     check = s.check()
@@ -197,6 +199,7 @@ TRUTH_TABLE = {
 # r8: nand(r6, r7)
 # output 0: r5
 # output 1: r8
+'''
 TRUTH_TABLE = {
     (False, False, False): [False, False],
     (False, False, True): [False, True],
@@ -207,6 +210,7 @@ TRUTH_TABLE = {
     (True, True, False): [True, False],
     (True, True, True): [True, True],
 }
+'''
 
 # Multi-bit Adder
 # 17-gate solution couldn't be found via Z3/Bitwuzla/CVC5 within 1.5 hours
@@ -221,6 +225,23 @@ for a in range(4):
             TRUTH_TABLE[(a & 2 == 2, a & 1 == 1, b & 2 == 2, b & 1 == 1, c == 1)] = [
                 sum & 4 == 4, sum & 2 == 2, sum & 1 == 1]
 '''
+
+# Equal to Zero
+# Optimal solution is 10 gates
+# r0: nand(in3, in3)
+# r1: nand(in0, in0)
+# r2: nand(in2, r1)
+# r3: nand(r1, r2)
+# r4: nand(r0, r3)
+# r5: nand(in1, r4)
+# r6: nand(r4, r0)
+# r7: nand(r5, r6)
+# r8: nand(r7, r5)
+# r9: nand(r8, r8)
+# output 0: r9
+TRUTH_TABLE = {}
+for i in range(16):
+    TRUTH_TABLE[(i & 8 == 8, i & 4 == 4, i & 2 == 2, i & 1 == 1)] = [i == 0]
 
 # Selector
 # Optimal solution is 4 gates
