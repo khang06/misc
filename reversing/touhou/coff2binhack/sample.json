@@ -1,0 +1,25 @@
+{
+    // Input COFF file
+    "input": "sample.obj",
+    // Output JSON file
+    "output": "th19.v1.00a.js",
+    // External symbol addresses
+    "externs": {
+        "g_networkLogicInf": {
+            "addr": "Rx1E6838"
+        },
+        "g_ascii": {
+            "addr": "Rx1AE444"
+        },
+        "draw_debug_text": {
+            "addr": "RxD7950"
+        }
+    },
+    // Additional binhacks
+    "binhacks": {
+        "ping_jmp": {
+            "addr": "RxFCA22",
+            "code": "E9 [codecave:ping_code]"
+        }
+    }
+}
