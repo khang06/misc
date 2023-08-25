@@ -1,25 +1,25 @@
 {
     // Input COFF file
-    "input": "sample.obj",
+    "input": "sample2.obj",
     // Output JSON file
     "output": "th19.v1.00a.js",
     // External symbol addresses
     "externs": {
-        "g_networkLogicInf": {
-            "addr": "Rx1E6838"
-        },
-        "g_ascii": {
+        "_g_ascii": {
             "addr": "Rx1AE444"
         },
-        "draw_debug_text": {
+        "?drawText@AsciiInf@@QAAXPAMPBDZZ": {
             "addr": "RxD7950"
+        },
+        "_GetModuleHandleA@4": {
+            "addr": "th_GetModuleHandleA"
         }
     },
     // Additional binhacks
     "binhacks": {
-        "ping_jmp": {
+        "hook_jmp": {
             "addr": "RxFCA22",
-            "code": "E9 [obj:ping_code]"
+            "code": "E9 [obj:_hook_entry]"
         }
     }
 }

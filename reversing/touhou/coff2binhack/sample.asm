@@ -1,3 +1,4 @@
+    ; nasm -f win32 sample.asm -o sample.obj
     global  ping_code
     extern  g_networkLogicInf
     extern  g_ascii
