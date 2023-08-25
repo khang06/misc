@@ -73,15 +73,39 @@ if __name__ == "__main__":
         raw_obj = file.read()
     obj = Coff(config.input)
 
+    codecaves = {}
+    section_merges = dict()
+    for i, section in enumerate(obj.sections):
+        if section.size == 0 or section.name in [".drectve"]:
+            continue
+        prot = ""
+        if section.flags & IMAGE_SCN_MEM_READ:
+            prot += "r"
+        if section.flags & IMAGE_SCN_MEM_WRITE:
+            prot += "w"
+        if section.flags & IMAGE_SCN_MEM_EXECUTE:
+            prot += "x"
+        if config.prefix + section.name in codecaves:
+            section_merges[i] = len(codecaves[config.prefix + section.name]["code"]) // 2
+            codecaves[config.prefix + section.name]["code"] += binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
+        else:
+            if section.flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA:
+                codecaves[config.prefix + section.name] = {
+                    "prot": prot,
+                    "size": section.size
+                }
+            else:
+                codecaves[config.prefix + section.name] = {
+                    "prot": prot,
+                    "code": binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
+                }
+            config.externs[section.name] = Extern(f"codecave:{config.prefix}{section.name}", 0)
+
     config.externs.update({k: Extern(v, 0) for k, v in COMMON_IMPORTS.items()})
-    for section in obj.sections:
-        config.externs[section.name] = Extern(f"codecave:{config.prefix}{section.name}", 0)
     for sym in itertools.chain(*obj.symtables.values()):
-        print(sym)
-        config.externs[sym.name] = Extern(f"codecave:{config.prefix}{obj.sections[sym.sectnum - 1].name}", sym.value)
+        config.externs[sym.name] = Extern(f"codecave:{config.prefix}{obj.sections[sym.sectnum - 1].name}", sym.value + section_merges.get(sym.sectnum - 1, 0))
 
     # TODO: handle import errors
-    codecaves = {}
     if len(config.imports) != 0:
         # ebx = GetProcAddress
         # ebp = current string pointer
@@ -130,52 +154,29 @@ if __name__ == "__main__":
 
     for seckey in obj.relocs.keys():
         section = obj.sections[seckey]
-        if section.size == 0 or section.name in [".drectve"]:
-            continue
-        prot = ""
-        if section.flags & IMAGE_SCN_MEM_READ:
-            prot += "r"
-        if section.flags & IMAGE_SCN_MEM_WRITE:
-            prot += "w"
-        if section.flags & IMAGE_SCN_MEM_EXECUTE:
-            prot += "x"
-
-        # TODO: support more reloc types
-        if section.flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA:
-            codecaves[config.prefix + section.name] = {
-                "prot": prot,
-                "size": section.size
-            }
-        else:
-            assert section.offdata > 0
-            code = binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
-            relocs = sorted(obj.relocs[seckey], key=lambda rel: rel.vaddr, reverse=True)
-            for reloc in relocs:
-                if reloc.name in config.externs:
-                    extern = config.externs[reloc.name]
-                    assert reloc.size == 4
-                    offset = int.from_bytes(raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], byteorder="little") + extern.offset
-                    print(reloc, raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], offset, extern.offset)
-                    match reloc.type:
-                        case coff.IMAGE_REL_I386_DIR32:
-                            if offset == 0:
-                                replacement = f"<{extern.addr}>"
-                            else:
-                                replacement = f"(<{extern.addr}>+{hex(offset)})"
-                        case coff.IMAGE_REL_I386_REL32:
-                            if offset == 0:
-                                replacement = f"[{extern.addr}]"
-                            else:
-                                replacement = f"([{extern.addr}]+{hex(offset)})"
-                        case _:
-                            raise KeyError(f"Unhandled reloc type {hex(reloc.type)}")
-                    code = code[:(reloc.vaddr * 2)] + replacement + code[(reloc.vaddr * 2 + 8):]
-                else:
-                    raise KeyError(f"Unhandled reloc {reloc}")
-            codecaves[config.prefix + section.name] = {
-                "prot": prot,
-                "code": code
-            }
+        relocs = sorted(obj.relocs[seckey], key=lambda rel: rel.vaddr, reverse=True)
+        for reloc in relocs:
+            if reloc.name in config.externs:
+                extern = config.externs[reloc.name]
+                assert reloc.size == 4
+                offset = int.from_bytes(raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], byteorder="little") + extern.offset
+                match reloc.type:
+                    case coff.IMAGE_REL_I386_DIR32:
+                        if offset == 0:
+                            replacement = f"<{extern.addr}>"
+                        else:
+                            replacement = f"(<{extern.addr}>+{hex(offset)})"
+                    case coff.IMAGE_REL_I386_REL32:
+                        if offset == 0:
+                            replacement = f"[{extern.addr}]"
+                        else:
+                            replacement = f"([{extern.addr}]+{hex(offset)})"
+                    case _:
+                        raise KeyError(f"Unhandled reloc type {hex(reloc.type)}")
+                code = codecaves[config.prefix + section.name]["code"]
+                codecaves[config.prefix + section.name]["code"] = code[:(reloc.vaddr * 2)] + replacement + code[(reloc.vaddr * 2 + 8):]
+            else:
+                raise KeyError(f"Unhandled reloc {reloc}")
 
     # TODO: this is really jank and badly implemented
     for binhack in config.binhacks.values():
