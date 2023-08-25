@@ -12,7 +12,7 @@ extern "C" AsciiInf* g_ascii;
 static void* g_base = 0;
 
 extern "C" void coff2binhack_init() {
-    MessageBoxA(NULL, "This is being called from the initializer!", "coff2binhack sample", 0);
+    MessageBoxA(NULL, "This is being called from the coff2binhack initializer!", "coff2binhack sample", 0);
     g_base = (void*)GetModuleHandleA(NULL);
 }
 

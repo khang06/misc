@@ -72,7 +72,7 @@ if __name__ == "__main__":
     codecaves = {}
     section_merges = dict()
     for i, section in enumerate(obj.sections):
-        if section.size == 0 or section.name in [".drectve"]:
+        if section.size == 0 or section.name.startswith("/") or section.name in [".drectve"]:
             continue
         prot = ""
         if section.flags & IMAGE_SCN_MEM_READ:
@@ -103,44 +103,41 @@ if __name__ == "__main__":
 
     # TODO: handle import errors
     if len(config.imports) != 0 or "_coff2binhack_init" in config.externs:
-        init_code = str()
-        if len(config.imports) != 0:
-            # ebx = GetProcAddress
-            # ebp = current string pointer
-            # esi = current import pointer
-            # edi = DLL handle
-            init_strs = bytearray()
-            import_count = 0
-            # push ebx; push ebp; push esi; push edi; mov ebx, GetProcAddress; mov ebp, init_strs; mov esi, imports
-            init_code += f"53555657bb<th_GetProcAddress>bd<codecave:{config.prefix}_init_strs>be<codecave:{config.prefix}_imports>"
-            encode_u32 = lambda x: binascii.hexlify(x.to_bytes(4, 'little')).decode()
-            for dll, imports in config.imports.items():
-                # Get the DLL handle
-                dll_str_offset = len(init_strs)
-                init_strs += dll.encode(encoding="ascii") + b'\x00'
-                # push ebp; call GetModuleHandleA; mov edi, eax; add ebp, len(dll) + 1
-                init_code += f"55e8[th_GetModuleHandleA]89c781c5{encode_u32(len(dll) + 1)}"
+        init_data = bytearray()
+        init_strs = bytearray()
+        import_count = 0
+        str_offset = 0
+        for dll, imports in config.imports.items():
+            init_strs += dll.encode(encoding="ascii") + b"\x00"
+            init_data += str_offset.to_bytes(4, 'little') + len(imports).to_bytes(4, 'little')
+            str_offset += len(dll) + 1
+            for imp, imp_data in imports.items():
+                init_strs += imp.encode(encoding="ascii") + b"\x00"
+                init_data += str_offset.to_bytes(4, 'little')
+                str_offset += len(imp) + 1
 
-                for imp, imp_data in imports.items():
-                    # Write the DLL's imports
-                    imp_str_offset = len(init_strs)
-                    init_strs += imp.encode(encoding="ascii") + b'\x00'
-                    # push ebp; push edi; call ebx; mov dword ptr [esi], eax; add ebp, len(imp) + 1; add esi, 4
-                    init_code += f"5557ffd3890681c5{encode_u32(len(imp) + 1)}83c604"
+                config.externs["__imp_" + imp_data.get("alias", imp)] = Extern(f"codecave:{config.prefix}_imports", import_count * 4)
+                import_count += 1
+        init_data += b"\xFF\xFF\xFF\xFF"
 
-                    config.externs["__imp_" + imp_data.get("alias", imp)] = Extern(f"codecave:{config.prefix}_imports", import_count * 4)
-                    import_count += 1
-        
+        str_base = len(init_data)
+        init_data += init_strs
+
+        # See load_imports.asm
+        init_code = "53555657bb41414141bd424242428b0383f8ff7432054343434350e82444444489c68b7b0483c308ff338104244343434356e80e45454589450083c50483c30483ef0174c9ebe1464646465f5e5d5bc3"
+        init_code, init_end = init_code.split("46464646")
+        init_code = init_code.replace("41414141", f"<codecave:{config.prefix}_init_data>")
+        init_code = init_code.replace("42424242", f"<codecave:{config.prefix}_imports>")
+        init_code = init_code.replace("43434343", f"(<codecave:{config.prefix}_init_data>+{hex(str_base)})")
+        init_code = init_code.replace("24444444", "[th_GetModuleHandleA]") # Remember that these are relative!!!
+        init_code = init_code.replace("0e454545", "[th_GetProcAddress]")
+
         if "_coff2binhack_init" in config.externs:
             # call _coff2binhack_init
             extern = config.externs["_coff2binhack_init"]
             init_code += f"e8([{extern.addr}]+{hex(extern.offset)})"
+        init_code += init_end
 
-        if len(config.imports) != 0:
-            # pop edi; pop esi; pop ebp; pop ebx
-            init_code += "5f5e5d5b"
-        # ret
-        init_code += "c3"
         codecaves[config.prefix + "_patch_init"] = {
             "prot": "rx",
             "code": init_code,
@@ -148,9 +145,9 @@ if __name__ == "__main__":
         }
         if len(config.imports) != 0:
             codecaves.update({
-                config.prefix + "_init_strs": {
+                config.prefix + "_init_data": {
                     "prot": "r",
-                    "code": binascii.hexlify(init_strs).decode()
+                    "code": binascii.hexlify(init_data).decode()
                 },
                 config.prefix + "_imports": {
                     "prot": "rw",
