@@ -4,7 +4,7 @@ import binascii
 import itertools
 import coff
 from coff import Coff # pip install coff
-from coff import IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE
+from coff import IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE, IMAGE_SCN_CNT_UNINITIALIZED_DATA
 
 # Common functions provided by thcrap
 COMMON_IMPORTS = {
@@ -45,20 +45,22 @@ COMMON_IMPORTS = {
     "_GetModuleHandleW@4": "th_GetModuleHandleW",
 }
 
+class Extern:
+    def __init__(self, addr: str, offset: int):
+        self.addr = addr
+        self.offset = offset
+    
+    def __repr__(self):
+        return f"{self.addr}+{hex(self.offset)}"
+
 class Config:
     def __init__(self, data: dict):
         self.input = data["input"]
         self.output = data["output"]
-
-        if data["externs"] is None:
-            self.externs = {}
-        else:
-            self.externs = {x: y["addr"] for x, y in data["externs"].items()}
-
-        if data["binhacks"] is None:
-            self.binhacks = {}
-        else:
-            self.binhacks = data["binhacks"]
+        self.prefix = data["prefix"]
+        self.externs = {x: Extern(y["addr"], y.get("offset", 0)) for x, y in data.get("externs", {}).items()}
+        self.binhacks = data.get("binhacks", {})
+        self.imports = data.get("imports", {})
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -71,15 +73,64 @@ if __name__ == "__main__":
         raw_obj = file.read()
     obj = Coff(config.input)
 
-    config.externs.update(COMMON_IMPORTS)
+    config.externs.update({k: Extern(v, 0) for k, v in COMMON_IMPORTS.items()})
+    for section in obj.sections:
+        config.externs[section.name] = Extern(f"codecave:{config.prefix}{section.name}", 0)
     for sym in itertools.chain(*obj.symtables.values()):
-        config.externs[sym.name] = f"codecave:{obj.sections[sym.sectnum - 1].name}+{hex(sym.value)}"
+        print(sym)
+        config.externs[sym.name] = Extern(f"codecave:{config.prefix}{obj.sections[sym.sectnum - 1].name}", sym.value)
 
+    # TODO: handle import errors
     codecaves = {}
+    if len(config.imports) != 0:
+        # ebx = GetProcAddress
+        # ebp = current string pointer
+        # esi = current import pointer
+        # edi = DLL handle
+        # push ebx; push ebp; push esi; push edi; mov ebx, GetProcAddress; mov ebp, init_strs; mov esi, imports
+        init_code = f"53555657bb<th_GetProcAddress>bd<codecave:{config.prefix}_init_strs>be<codecave:{config.prefix}_imports>"
+        init_strs = bytearray()
+        import_count = 0
+        encode_u32 = lambda x: binascii.hexlify(x.to_bytes(4, 'little')).decode()
+        for dll, imports in config.imports.items():
+            # Get the DLL handle
+            dll_str_offset = len(init_strs)
+            init_strs += dll.encode(encoding="ascii") + b'\x00'
+            # push ebp; call GetModuleHandleA; mov edi, eax; add ebp, len(dll) + 1
+            init_code += f"55e8[th_GetModuleHandleA]89c781c5{encode_u32(len(dll) + 1)}"
+
+            for imp, imp_data in imports.items():
+                # Write the DLL's imports
+                imp_str_offset = len(init_strs)
+                init_strs += imp.encode(encoding="ascii") + b'\x00'
+                # push ebp; push edi; call ebx; mov dword ptr [esi], eax; add ebp, len(imp) + 1; add esi, 4
+                init_code += f"5557ffd3890681c5{encode_u32(len(imp) + 1)}83c604"
+
+                config.externs["__imp_" + imp_data.get("alias", imp)] = Extern(f"codecave:{config.prefix}_imports", import_count * 4)
+                import_count += 1
+
+        # pop edi; pop esi; pop ebp; pop ebx; ret
+        init_code += "5f5e5d5bc3"
+        codecaves.update({
+            config.prefix + "_patch_init": {
+                "prot": "rx",
+                "code": init_code,
+                "export": True
+            },
+            config.prefix + "_init_strs": {
+                "prot": "r",
+                "code": binascii.hexlify(init_strs).decode()
+            },
+            config.prefix + "_imports": {
+                "prot": "rw",
+                "size": import_count * 4
+            }
+        })
+
+
     for seckey in obj.relocs.keys():
-        # TODO: support bss
         section = obj.sections[seckey]
-        if section.size == 0:
+        if section.size == 0 or section.name in [".drectve"]:
             continue
         prot = ""
         if section.flags & IMAGE_SCN_MEM_READ:
@@ -90,29 +141,41 @@ if __name__ == "__main__":
             prot += "x"
 
         # TODO: support more reloc types
-        code = binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
-        relocs = sorted(obj.relocs[seckey], key=lambda rel: rel.vaddr, reverse=True)
-        for reloc in relocs:
-            if reloc.name in config.externs:
-                assert reloc.size == 4
-                offset = int.from_bytes(raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], byteorder="little")
-                match reloc.type:
-                    case coff.IMAGE_REL_I386_DIR32:
-                        replacement = f"<{config.externs[reloc.name]}>"
-                    case coff.IMAGE_REL_I386_REL32:
-                        replacement = f"[{config.externs[reloc.name]}]"
-                    case _:
-                        raise KeyError(f"Unhandled reloc type {hex(reloc.type)}")
-                if offset != 0:
-                    replacement += f"+{hex(offset)}"
-                code = code[:(reloc.vaddr * 2)] + f"({replacement})" + code[(reloc.vaddr * 2 + 8):]
-            else:
-                raise KeyError(f"Unhandled reloc {reloc}")
-
-        codecaves[section.name] = {
-            "prot": prot,
-            "code": code
-        }
+        if section.flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA:
+            codecaves[config.prefix + section.name] = {
+                "prot": prot,
+                "size": section.size
+            }
+        else:
+            assert section.offdata > 0
+            code = binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
+            relocs = sorted(obj.relocs[seckey], key=lambda rel: rel.vaddr, reverse=True)
+            for reloc in relocs:
+                if reloc.name in config.externs:
+                    extern = config.externs[reloc.name]
+                    assert reloc.size == 4
+                    offset = int.from_bytes(raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], byteorder="little") + extern.offset
+                    print(reloc, raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], offset, extern.offset)
+                    match reloc.type:
+                        case coff.IMAGE_REL_I386_DIR32:
+                            if offset == 0:
+                                replacement = f"<{extern.addr}>"
+                            else:
+                                replacement = f"(<{extern.addr}>+{hex(offset)})"
+                        case coff.IMAGE_REL_I386_REL32:
+                            if offset == 0:
+                                replacement = f"[{extern.addr}]"
+                            else:
+                                replacement = f"([{extern.addr}]+{hex(offset)})"
+                        case _:
+                            raise KeyError(f"Unhandled reloc type {hex(reloc.type)}")
+                    code = code[:(reloc.vaddr * 2)] + replacement + code[(reloc.vaddr * 2 + 8):]
+                else:
+                    raise KeyError(f"Unhandled reloc {reloc}")
+            codecaves[config.prefix + section.name] = {
+                "prot": prot,
+                "code": code
+            }
 
     # TODO: this is really jank and badly implemented
     for binhack in config.binhacks.values():
@@ -124,8 +187,12 @@ if __name__ == "__main__":
             while not code[obj_end] in SEPARATORS:
                 obj_end += 1
 
-            obj_name = code[(obj_pos + len("obj:")):obj_end]
-            code = code[:obj_pos] + config.externs[obj_name] + code[obj_end:]
+            # TODO: figure out how to implement this with the newer codecave reference syntax
+            extern = config.externs[code[(obj_pos + len("obj:")):obj_end]]
+            replacement = extern.addr
+            if extern.offset != 0:
+                replacement += f"+{hex(extern.offset)}"
+            code = code[:obj_pos] + replacement + code[obj_end:]
             
             obj_pos = code.find("obj:")
         binhack["code"] = code

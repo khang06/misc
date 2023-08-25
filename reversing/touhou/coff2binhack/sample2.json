@@ -3,6 +3,8 @@
     "input": "sample2.obj",
     // Output JSON file
     "output": "th19.v1.00a.js",
+    // Codecave name prefix
+    "prefix": "sample2",
     // External symbol addresses
     "externs": {
         "_g_ascii": {
@@ -10,9 +12,19 @@
         },
         "?drawText@AsciiInf@@QAAXPAMPBDZZ": {
             "addr": "RxD7950"
+        }
+    },
+    // DLL imports
+    "imports": {
+        "user32.dll": {
+            "MessageBoxA": {
+                "alias": "_MessageBoxA@16"
+            }
         },
-        "_GetModuleHandleA@4": {
-            "addr": "th_GetModuleHandleA"
+        "kernel32.dll": {
+            "GetProcAddress": {
+                "alias": "_GetProcAddress@16"
+            }
         }
     },
     // Additional binhacks

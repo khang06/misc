@@ -3,6 +3,8 @@
     "input": "sample.obj",
     // Output JSON file
     "output": "th19.v1.00a.js",
+    // Codecave name prefix
+    "prefix": "sample",
     // External symbol addresses
     "externs": {
         "g_networkLogicInf": {
