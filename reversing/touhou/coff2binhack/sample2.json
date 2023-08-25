@@ -22,8 +22,8 @@
             }
         },
         "kernel32.dll": {
-            "GetProcAddress": {
-                "alias": "_GetProcAddress@16"
+            "GetModuleHandleA": {
+                "alias": "_GetModuleHandleA@4"
             }
         }
     },

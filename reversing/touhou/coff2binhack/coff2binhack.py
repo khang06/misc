@@ -39,10 +39,6 @@ COMMON_IMPORTS = {
     "_sprintf": "th_sprintf",
     "_snprintf": "th_snprintf",
     "_sscanf": "th_sscanf",
-    "_GetLastError@4": "th_GetLastError",
-    "_GetProcAddress@4": "th_GetProcAddress",
-    "_GetModuleHandleA@4": "th_GetModuleHandleA",
-    "_GetModuleHandleW@4": "th_GetModuleHandleW",
 }
 
 class Extern:
@@ -106,51 +102,61 @@ if __name__ == "__main__":
         config.externs[sym.name] = Extern(f"codecave:{config.prefix}{obj.sections[sym.sectnum - 1].name}", sym.value + section_merges.get(sym.sectnum - 1, 0))
 
     # TODO: handle import errors
-    if len(config.imports) != 0:
-        # ebx = GetProcAddress
-        # ebp = current string pointer
-        # esi = current import pointer
-        # edi = DLL handle
-        # push ebx; push ebp; push esi; push edi; mov ebx, GetProcAddress; mov ebp, init_strs; mov esi, imports
-        init_code = f"53555657bb<th_GetProcAddress>bd<codecave:{config.prefix}_init_strs>be<codecave:{config.prefix}_imports>"
-        init_strs = bytearray()
-        import_count = 0
-        encode_u32 = lambda x: binascii.hexlify(x.to_bytes(4, 'little')).decode()
-        for dll, imports in config.imports.items():
-            # Get the DLL handle
-            dll_str_offset = len(init_strs)
-            init_strs += dll.encode(encoding="ascii") + b'\x00'
-            # push ebp; call GetModuleHandleA; mov edi, eax; add ebp, len(dll) + 1
-            init_code += f"55e8[th_GetModuleHandleA]89c781c5{encode_u32(len(dll) + 1)}"
+    if len(config.imports) != 0 or "_coff2binhack_init" in config.externs:
+        init_code = str()
+        if len(config.imports) != 0:
+            # ebx = GetProcAddress
+            # ebp = current string pointer
+            # esi = current import pointer
+            # edi = DLL handle
+            init_strs = bytearray()
+            import_count = 0
+            # push ebx; push ebp; push esi; push edi; mov ebx, GetProcAddress; mov ebp, init_strs; mov esi, imports
+            init_code += f"53555657bb<th_GetProcAddress>bd<codecave:{config.prefix}_init_strs>be<codecave:{config.prefix}_imports>"
+            encode_u32 = lambda x: binascii.hexlify(x.to_bytes(4, 'little')).decode()
+            for dll, imports in config.imports.items():
+                # Get the DLL handle
+                dll_str_offset = len(init_strs)
+                init_strs += dll.encode(encoding="ascii") + b'\x00'
+                # push ebp; call GetModuleHandleA; mov edi, eax; add ebp, len(dll) + 1
+                init_code += f"55e8[th_GetModuleHandleA]89c781c5{encode_u32(len(dll) + 1)}"
 
-            for imp, imp_data in imports.items():
-                # Write the DLL's imports
-                imp_str_offset = len(init_strs)
-                init_strs += imp.encode(encoding="ascii") + b'\x00'
-                # push ebp; push edi; call ebx; mov dword ptr [esi], eax; add ebp, len(imp) + 1; add esi, 4
-                init_code += f"5557ffd3890681c5{encode_u32(len(imp) + 1)}83c604"
+                for imp, imp_data in imports.items():
+                    # Write the DLL's imports
+                    imp_str_offset = len(init_strs)
+                    init_strs += imp.encode(encoding="ascii") + b'\x00'
+                    # push ebp; push edi; call ebx; mov dword ptr [esi], eax; add ebp, len(imp) + 1; add esi, 4
+                    init_code += f"5557ffd3890681c5{encode_u32(len(imp) + 1)}83c604"
 
-                config.externs["__imp_" + imp_data.get("alias", imp)] = Extern(f"codecave:{config.prefix}_imports", import_count * 4)
-                import_count += 1
+                    config.externs["__imp_" + imp_data.get("alias", imp)] = Extern(f"codecave:{config.prefix}_imports", import_count * 4)
+                    import_count += 1
+        
+        if "_coff2binhack_init" in config.externs:
+            # call _coff2binhack_init
+            extern = config.externs["_coff2binhack_init"]
+            init_code += f"e8([{extern.addr}]+{hex(extern.offset)})"
 
-        # pop edi; pop esi; pop ebp; pop ebx; ret
-        init_code += "5f5e5d5bc3"
-        codecaves.update({
-            config.prefix + "_patch_init": {
-                "prot": "rx",
-                "code": init_code,
-                "export": True
-            },
-            config.prefix + "_init_strs": {
-                "prot": "r",
-                "code": binascii.hexlify(init_strs).decode()
-            },
-            config.prefix + "_imports": {
-                "prot": "rw",
-                "size": import_count * 4
-            }
-        })
-
+        if len(config.imports) != 0:
+            # pop edi; pop esi; pop ebp; pop ebx
+            init_code += "5f5e5d5b"
+        # ret
+        init_code += "c3"
+        codecaves[config.prefix + "_patch_init"] = {
+            "prot": "rx",
+            "code": init_code,
+            "export": True
+        }
+        if len(config.imports) != 0:
+            codecaves.update({
+                config.prefix + "_init_strs": {
+                    "prot": "r",
+                    "code": binascii.hexlify(init_strs).decode()
+                },
+                config.prefix + "_imports": {
+                    "prot": "rw",
+                    "size": import_count * 4
+                }
+            })
 
     for seckey in obj.relocs.keys():
         section = obj.sections[seckey]
