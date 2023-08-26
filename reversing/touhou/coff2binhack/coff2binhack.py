@@ -132,58 +132,66 @@ if __name__ == "__main__":
     for sym in itertools.chain(*obj.symtables.values()):
         cave = section_to_cave[sym.sectnum - 1]
         config.externs[sym.name] = Extern(cave[0], cave[1] + sym.value)
+    
+    # TODO: support static ctors
+    init_code = str()
+    if "_coff2binhack_init" in config.externs:
+        extern = config.externs["_coff2binhack_init"]
+        init_code = f"e8([{extern.addr}]+{hex(extern.offset)})c3"
 
-    # TODO: handle import errors
-    if len(config.imports) != 0 or "_coff2binhack_init" in config.externs:
-        init_data = str()
-        init_strs = bytearray()
+    if len(config.imports) != 0:
+        # See load_imports.asm
+        import_code = f"555357565068<option:{config.prefix}_kernel32>e8[th_GetModuleHandleA]68<option:{config.prefix}_LoadLibraryA>50e8[th_GetProcAddress]89042431edbb<codecave:{config.prefix}_dlls>8b35<codecave:{config.prefix}_dlls>660f1f44000056e8[th_GetModuleHandleA]89c785c0750b56ff54240489c785c0743c8b730439f5741f6690ff34ad<codecave:{config.prefix}_import_names>57e8[th_GetProcAddress]85c0742b8904ad<codecave:{config.prefix}_imports>4539ee75e38b730883c30885f675b983c4045e5f5b5de92c000000505668<option:{config.prefix}_dll_load_failed>eb0d50ff34ad<codecave:{config.prefix}_import_names>68<option:{config.prefix}_import_failed>e8[th_GetLastError]894424086a1068<option:{config.prefix}_name>e8[log_mboxf]cc"
+        if len(init_code) > 0:
+            import_code += init_code
+        else:
+            import_code = import_code.replace("e92c000000", "c30f1f4000")
+
+        dlls_cave = str()
+        import_names_cave = str()
         import_count = 0
-        str_base = 4 + len(config.imports) * 8 + sum([len(x) for x in config.imports.values()]) * 4
-        str_offset = 0
-        encode_u32 = lambda x: binascii.hexlify(x.to_bytes(4, 'little')).decode()
+        add_opt_str = lambda name, val: options.__setitem__(f"{config.prefix}_{name}", { "type": "s", "val": val })
         for dll, imports in config.imports.items():
-            init_strs += dll.encode(encoding="ascii") + b"\x00"
-            init_data += f"(<codecave:{config.prefix}_init_data>+{hex(str_base+str_offset)}){encode_u32(len(imports))}"
-            str_offset += len(dll) + 1
+            add_opt_str(f"imp_{dll}", dll)
+            dlls_cave += f"<option:{config.prefix}_imp_{dll}>"
             for imp, imp_data in imports.items():
-                init_strs += imp.encode(encoding="ascii") + b"\x00"
-                init_data += f"(<codecave:{config.prefix}_init_data>+{hex(str_base+str_offset)})"
-                str_offset += len(imp) + 1
-
+                add_opt_str(f"imp_{imp}", imp)
+                import_names_cave += f"<option:{config.prefix}_imp_{imp}>"
                 config.externs["__imp_" + imp_data.get("alias", imp)] = Extern(f"codecave:{config.prefix}_imports", import_count * 4)
                 import_count += 1
-        init_data += "00" * 4 + binascii.hexlify(init_strs).decode()
-
-        # See load_imports.asm
-        init_code = "53555657bb41414141bd424242428b0385c0742650e82a44444489c68b7b0483c308ff3356e81b45454589450083c50483c30483ef0174d6ebe8464646465f5e5d5bc3"
-        init_code, init_end = init_code.split("46464646")
-        init_code = init_code.replace("41414141", f"<codecave:{config.prefix}_init_data>")
-        init_code = init_code.replace("42424242", f"<codecave:{config.prefix}_imports>")
-        init_code = init_code.replace("2a444444", "[th_GetModuleHandleA]") # Remember that these are relative!!!
-        init_code = init_code.replace("1b454545", "[th_GetProcAddress]")
-
-        if "_coff2binhack_init" in config.externs:
-            # call _coff2binhack_init
-            extern = config.externs["_coff2binhack_init"]
-            init_code += f"e8([{extern.addr}]+{hex(extern.offset)})"
-        init_code += init_end
-
+            dlls_cave += binascii.hexlify(import_count.to_bytes(4, "little")).decode()
+        dlls_cave += "0" * 8
+        add_opt_str("name", config.prefix)
+        add_opt_str("kernel32", "kernel32.dll")
+        add_opt_str("LoadLibraryA", "LoadLibraryA")
+        add_opt_str("dll_load_failed", "Failed to load DLL %s (code: 0x%p)")
+        add_opt_str("import_failed", "Failed to load import %s (code: 0x%p)")
+        
+        codecaves.update({
+            config.prefix + "_patch_init": {
+                "prot": "rx",
+                "code": import_code,
+                "export": True,
+            },
+            config.prefix + "_dlls": {
+                "prot": "r",
+                "code": dlls_cave,
+            },
+            config.prefix + "_import_names": {
+                "prot": "r",
+                "code": import_names_cave,
+            },
+            config.prefix + "_imports": {
+                "prot": "rw",
+                "size": import_count * 4,
+            },
+        })
+    else:
         codecaves[config.prefix + "_patch_init"] = {
             "prot": "rx",
             "code": init_code,
-            "export": True
+            "export": True,
         }
-        if len(config.imports) != 0:
-            codecaves.update({
-                config.prefix + "_init_data": {
-                    "prot": "r",
-                    "code": init_data
-                },
-                config.prefix + "_imports": {
-                    "prot": "rw",
-                    "size": import_count * 4
-                }
-            })
 
     for seckey in obj.relocs.keys():
         section = obj.sections[seckey]
