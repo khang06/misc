@@ -16,7 +16,7 @@
     },
     // DLL imports
     "imports": {
-        "user32.dll": {
+        "bogusdll.dll": {
             "MessageBoxA": {
                 "alias": "_MessageBoxA@16"
             },

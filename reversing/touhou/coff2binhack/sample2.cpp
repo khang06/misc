@@ -1,4 +1,4 @@
-// clang++ -m32 -fno-builtin -O2 -c sample2.cpp -o sample2.obj
+// clang++ -m32 -O2 -c sample2.cpp -o sample2.obj
 
 #include <Windows.h>
 
@@ -10,6 +10,14 @@ public:
 extern "C" AsciiInf* g_ascii;
 
 static void* g_base = 0;
+
+__attribute__((constructor)) void static_ctor() {
+    MessageBoxA(NULL, "This is being called from a static constructor!", "coff2binhack sample", 0);
+}
+
+__attribute__((destructor)) void static_dtor() {
+    MessageBoxA(NULL, "This is being called from a static destructor!", "coff2binhack sample", 0);
+}
 
 extern "C" void coff2binhack_init() {
     MessageBoxA(NULL, "This is being called from the coff2binhack initializer!", "coff2binhack sample", 0);
