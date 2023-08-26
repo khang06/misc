@@ -13,6 +13,7 @@ static void* g_base = 0;
 
 extern "C" void coff2binhack_init() {
     MessageBoxA(NULL, "This is being called from the coff2binhack initializer!", "coff2binhack sample", 0);
+    MessageBoxW(NULL, L"これはひどく翻訳された日本語の文字列である！", L"coff2binhack sample (wide)", 0);
     g_base = (void*)GetModuleHandleA(NULL);
 }
 

@@ -19,6 +19,9 @@
         "user32.dll": {
             "MessageBoxA": {
                 "alias": "_MessageBoxA@16"
+            },
+            "MessageBoxW": {
+                "alias": "_MessageBoxW@16"
             }
         },
         "kernel32.dll": {

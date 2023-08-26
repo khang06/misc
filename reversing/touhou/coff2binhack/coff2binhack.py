@@ -4,7 +4,7 @@ import binascii
 import itertools
 import coff
 from coff import Coff # pip install coff
-from coff import IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE, IMAGE_SCN_CNT_UNINITIALIZED_DATA
+from coff import IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE, IMAGE_SCN_CNT_UNINITIALIZED_DATA, IMAGE_SCN_LNK_COMDAT
 
 # Common functions provided by thcrap
 COMMON_IMPORTS = {
@@ -57,32 +57,62 @@ class Config:
         self.externs = {x: Extern(y["addr"], y.get("offset", 0)) for x, y in data.get("externs", {}).items()}
         self.binhacks = data.get("binhacks", {})
         self.imports = data.get("imports", {})
+        self.options = data.get("options", {})
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} [input json]")
         sys.exit(1)
     
-    with open(sys.argv[1], "r") as file:
+    with open(sys.argv[1], "r", encoding="utf-8") as file:
         config = Config(json5.load(file))
     with open(config.input, "rb") as file:
         raw_obj = file.read()
     obj = Coff(config.input)
 
+    options = config.options
     codecaves = {}
-    section_merges = dict()
+    section_to_cave = dict() # (section number, (codecave/option string, offset))
+    const_count = 0
     for i, section in enumerate(obj.sections):
-        if section.size == 0 or section.name.startswith("/") or section.name in [".drectve"]:
+        if section.size == 0 or section.name.startswith("/") or section.name in [".drectve", ".llvm_addrsig"]:
             continue
-        prot = ""
+
+        prot = str()
         if section.flags & IMAGE_SCN_MEM_READ:
             prot += "r"
         if section.flags & IMAGE_SCN_MEM_WRITE:
             prot += "w"
         if section.flags & IMAGE_SCN_MEM_EXECUTE:
             prot += "x"
-        if config.prefix + section.name in codecaves:
-            section_merges[i] = len(codecaves[config.prefix + section.name]["code"]) // 2
+
+        if section.flags & IMAGE_SCN_LNK_COMDAT and len(obj.symtables[i]) == 1 and obj.symtables[i][0].name.startswith("??_C"):
+            # TODO: handle float constant deduplication sections too
+            # String deduplication section
+            # Unfortunately, the string symbol name doesn't specify what encoding it is
+            section_to_cave[i] = (f"option:{config.prefix}_const_{const_count}", 0)
+
+            raw_string = raw_obj[section.offdata:(section.offdata + section.size)]
+            option_type = "c"
+            option_data = binascii.hexlify(raw_string).decode()
+            if len(raw_string) >= 1 and all(x > 0 and x < 0x80 for x in raw_string[:-1]) and raw_string[-1] == 0:
+                # TODO: this won't work on utf-8 or shift-jis strings
+                option_data = raw_string[:-1].decode(encoding="ascii")
+                option_type = "s"
+            elif len(raw_string) >= 2:
+                try:
+                    option_data = raw_string[:-2].decode(encoding="utf-16")
+                    option_type = "w"
+                except UnicodeError:
+                    pass
+
+            options[f"{config.prefix}_const_{const_count}"] = {
+                "type": option_type,
+                "val": option_data,
+            }
+            const_count += 1
+        elif config.prefix + section.name in codecaves:
+            section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", len(codecaves[config.prefix + section.name]["code"]) // 2)
             codecaves[config.prefix + section.name]["code"] += binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
         else:
             if section.flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA:
@@ -95,42 +125,42 @@ if __name__ == "__main__":
                     "prot": prot,
                     "code": binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
                 }
+            section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", 0)
             config.externs[section.name] = Extern(f"codecave:{config.prefix}{section.name}", 0)
 
     config.externs.update({k: Extern(v, 0) for k, v in COMMON_IMPORTS.items()})
     for sym in itertools.chain(*obj.symtables.values()):
-        config.externs[sym.name] = Extern(f"codecave:{config.prefix}{obj.sections[sym.sectnum - 1].name}", sym.value + section_merges.get(sym.sectnum - 1, 0))
+        cave = section_to_cave[sym.sectnum - 1]
+        config.externs[sym.name] = Extern(cave[0], cave[1] + sym.value)
 
     # TODO: handle import errors
     if len(config.imports) != 0 or "_coff2binhack_init" in config.externs:
-        init_data = bytearray()
+        init_data = str()
         init_strs = bytearray()
         import_count = 0
+        str_base = 4 + len(config.imports) * 8 + sum([len(x) for x in config.imports.values()]) * 4
         str_offset = 0
+        encode_u32 = lambda x: binascii.hexlify(x.to_bytes(4, 'little')).decode()
         for dll, imports in config.imports.items():
             init_strs += dll.encode(encoding="ascii") + b"\x00"
-            init_data += str_offset.to_bytes(4, 'little') + len(imports).to_bytes(4, 'little')
+            init_data += f"(<codecave:{config.prefix}_init_data>+{hex(str_base+str_offset)}){encode_u32(len(imports))}"
             str_offset += len(dll) + 1
             for imp, imp_data in imports.items():
                 init_strs += imp.encode(encoding="ascii") + b"\x00"
-                init_data += str_offset.to_bytes(4, 'little')
+                init_data += f"(<codecave:{config.prefix}_init_data>+{hex(str_base+str_offset)})"
                 str_offset += len(imp) + 1
 
                 config.externs["__imp_" + imp_data.get("alias", imp)] = Extern(f"codecave:{config.prefix}_imports", import_count * 4)
                 import_count += 1
-        init_data += b"\xFF\xFF\xFF\xFF"
-
-        str_base = len(init_data)
-        init_data += init_strs
+        init_data += "00" * 4 + binascii.hexlify(init_strs).decode()
 
         # See load_imports.asm
-        init_code = "53555657bb41414141bd424242428b0383f8ff7432054343434350e82444444489c68b7b0483c308ff338104244343434356e80e45454589450083c50483c30483ef0174c9ebe1464646465f5e5d5bc3"
+        init_code = "53555657bb41414141bd424242428b0385c0742650e82a44444489c68b7b0483c308ff3356e81b45454589450083c50483c30483ef0174d6ebe8464646465f5e5d5bc3"
         init_code, init_end = init_code.split("46464646")
         init_code = init_code.replace("41414141", f"<codecave:{config.prefix}_init_data>")
         init_code = init_code.replace("42424242", f"<codecave:{config.prefix}_imports>")
-        init_code = init_code.replace("43434343", f"(<codecave:{config.prefix}_init_data>+{hex(str_base)})")
-        init_code = init_code.replace("24444444", "[th_GetModuleHandleA]") # Remember that these are relative!!!
-        init_code = init_code.replace("0e454545", "[th_GetProcAddress]")
+        init_code = init_code.replace("2a444444", "[th_GetModuleHandleA]") # Remember that these are relative!!!
+        init_code = init_code.replace("1b454545", "[th_GetProcAddress]")
 
         if "_coff2binhack_init" in config.externs:
             # call _coff2binhack_init
@@ -147,7 +177,7 @@ if __name__ == "__main__":
             codecaves.update({
                 config.prefix + "_init_data": {
                     "prot": "r",
-                    "code": binascii.hexlify(init_data).decode()
+                    "code": init_data
                 },
                 config.prefix + "_imports": {
                     "prot": "rw",
@@ -202,8 +232,9 @@ if __name__ == "__main__":
         binhack["code"] = code
 
     output_dict = {
+        "options": options,
         "codecaves": codecaves,
         "binhacks": config.binhacks
     }
-    with open(config.output, "w") as output:
-        json5.dump(output_dict, output, indent=4)
+    with open(config.output, "w", encoding="utf-8") as output:
+        json5.dump(output_dict, output, indent=4, ensure_ascii=False)
