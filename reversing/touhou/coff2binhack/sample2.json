@@ -5,6 +5,19 @@
     "output": "th19.v1.00a.js",
     // Codecave name prefix
     "prefix": "sample2",
+    // Options
+    "options": {
+        "sample_option_int": {
+            "type": "i32",
+            "val": 123,
+            "symbol": "_g_sample_option_int"
+        },
+        "sample_option_str": {
+            "type": "s",
+            "val": "it works",
+            "symbol": "_g_sample_option_str"
+        },
+    },
     // External symbol addresses
     "externs": {
         "_g_ascii": {

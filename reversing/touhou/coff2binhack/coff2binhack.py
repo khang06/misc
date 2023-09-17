@@ -4,8 +4,7 @@ import binascii
 import itertools
 import coff
 from coff import Coff # pip install coff
-from coff import IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE, IMAGE_SCN_CNT_UNINITIALIZED_DATA, IMAGE_SCN_LNK_COMDAT
-from types import MethodType
+from coff import IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE, IMAGE_SCN_CNT_UNINITIALIZED_DATA, IMAGE_SCN_ALIGN_MASK, IMAGE_SCN_LNK_COMDAT
 
 # Common functions provided by thcrap
 COMMON_IMPORTS = {
@@ -88,19 +87,22 @@ if __name__ == "__main__":
                     if self._Coff__header.id == 0x8664:
                         if rel.type >= coff.IMAGE_REL_AMD64_REL32  and rel.type <= coff.IMAGE_REL_AMD64_REL32_5:
                             rel.size = 4
-                            self.__relocs[seckey].append(rel)
+                            self._Coff__relocs[seckey].append(rel)
                     elif self._Coff__header.id == 0x14c:
                         if rel.type == coff.IMAGE_REL_I386_DIR32  or rel.type == coff.IMAGE_REL_I386_DIR32NB  or rel.type == coff.IMAGE_REL_I386_REL32 :
                             self._Coff__relocs[seckey].append(rel)
                             rel.size = 4
+                        else:
+                            raise Exception(f"Unhandled relocation type {rel.type}")
                     curreloff += rel.get_size()
         return
     Coff._Coff__parse_reloc = __parse_reloc
     obj = Coff(config.input)
 
-    options = config.options
+    options = config.options.copy()
     codecaves = {}
     section_to_cave = dict() # (section number, (codecave/option string, offset))
+    comdat_pool  = str()
     const_count = 0
     for i, section in enumerate(obj.sections):
         if section.size == 0 or section.name.startswith("/") or section.name in [".drectve", ".llvm_addrsig"]:
@@ -114,53 +116,96 @@ if __name__ == "__main__":
         if section.flags & IMAGE_SCN_MEM_EXECUTE:
             prot += "x"
 
-        if section.flags & IMAGE_SCN_LNK_COMDAT and len(obj.symtables[i]) == 1 and obj.symtables[i][0].name.startswith("??_C"):
-            # TODO: handle float constant deduplication sections too
-            # String deduplication section
-            # Unfortunately, the string symbol name doesn't specify what encoding it is
+        if section.flags & IMAGE_SCN_LNK_COMDAT and len(obj.symtables[i]) == 1:
+            # Constant deduplication section
+            # TODO: try to decode floats in a way that's roundtrippable
             section_to_cave[i] = (f"option:{config.prefix}_const_{const_count}", 0)
 
             raw_string = raw_obj[section.offdata:(section.offdata + section.size)]
             option_type = "c"
             option_data = binascii.hexlify(raw_string).decode()
-            if len(raw_string) >= 1 and all(x > 0 and x < 0x80 for x in raw_string[:-1]) and raw_string[-1] == 0:
-                # TODO: this won't work on utf-8 or shift-jis strings
-                option_data = raw_string[:-1].decode(encoding="ascii")
-                option_type = "s"
-            elif len(raw_string) >= 2:
-                try:
-                    option_data = raw_string[:-2].decode(encoding="utf-16")
-                    option_type = "w"
-                except UnicodeError:
-                    pass
 
-            options[f"{config.prefix}_const_{const_count}"] = {
-                "type": option_type,
-                "val": option_data,
-            }
-            const_count += 1
+            if obj.symtables[i][0].name.startswith("??_C"):
+                # Unfortunately, the string symbol name doesn't specify what encoding it is
+                if len(raw_string) >= 1 and all(x > 0 and x < 0x80 for x in raw_string[:-1]) and raw_string[-1] == 0:
+                    # TODO: this won't work on utf-8 or shift-jis strings
+                    option_data = raw_string[:-1].decode(encoding="ascii")
+                    option_type = "s"
+                elif len(raw_string) >= 2:
+                    try:
+                        option_data = raw_string[:-2].decode(encoding="utf-16")
+                        option_type = "w"
+                    except UnicodeError:
+                        pass
+
+            if option_type == "c":
+                cur_size = len(comdat_pool) // 2
+                alignment = 0
+                if section.flags & IMAGE_SCN_ALIGN_MASK:
+                    alignment = 1 << ((section.flags & IMAGE_SCN_ALIGN_MASK) >> 20) - 1
+                padding = 0
+                if alignment != 0 and cur_size % alignment:
+                    padding = alignment - (cur_size % alignment)
+                section_to_cave[i] = (f"codecave:{config.prefix}_comdat_pool", cur_size + padding)
+                comdat_pool += "00" * padding
+                comdat_pool += binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
+            else:
+                options[f"{config.prefix}_const_{const_count}"] = {
+                    "type": option_type,
+                    "val": option_data,
+                }
+                const_count += 1
         elif config.prefix + section.name in codecaves:
-            section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", len(codecaves[config.prefix + section.name]["code"]) // 2)
-            codecaves[config.prefix + section.name]["code"] += binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
+            if "code" in codecaves[config.prefix + section.name]:
+                section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", len(codecaves[config.prefix + section.name]["code"]) // 2)
+                codecaves[config.prefix + section.name]["code"] += binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
+            else:
+                section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", codecaves[config.prefix + section.name]["size"])
+                codecaves[config.prefix + section.name]["size"] += section.size
         else:
             #print(section, obj.relocs[i])
             if section.flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA:
                 codecaves[config.prefix + section.name] = {
-                    "prot": prot,
+                    "access": prot,
                     "size": section.size
                 }
             else:
                 codecaves[config.prefix + section.name] = {
-                    "prot": prot,
+                    "access": prot,
                     "code": binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
                 }
             section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", 0)
             config.externs[section.name] = Extern(f"codecave:{config.prefix}{section.name}", 0)
+    
+    if len(comdat_pool) > 0:
+        codecaves[config.prefix + "_comdat_pool"] = {
+            "access": "r",
+            "code": comdat_pool
+        }
 
     config.externs.update({k: Extern(v, 0) for k, v in COMMON_IMPORTS.items()})
     for sym in itertools.chain(*obj.symtables.values()):
         cave = section_to_cave[sym.sectnum - 1]
         config.externs[sym.name] = Extern(cave[0], cave[1] + sym.value)
+    
+    if config.options:
+        opt_cave = str()
+        opt_offset = 0
+        for name, opt in config.options.items():
+            match opt["type"][0]:
+                case "s" | "w" | "c":
+                    size = 4
+                case "i" | "b" | "u" | "p" | "f":
+                    size = int(opt["type"][1:]) // 8
+                case _:
+                    raise Exception(f"Unhandled option type {opt['type']}")
+            opt_cave += f"<option:{name}>"
+            config.externs[opt["symbol"]] = Extern(f"codecave:{config.prefix}_options", opt_offset)
+            opt_offset += size
+        codecaves[config.prefix + "_options"] = {
+            "access": "r",
+            "code": opt_cave
+        }
     
     init_code = str()
     if ".CRT$XCU" in config.externs:
@@ -202,26 +247,26 @@ if __name__ == "__main__":
         
         codecaves.update({
             config.prefix + "_patch_init": {
-                "prot": "rx",
+                "access": "rx",
                 "code": import_code,
                 "export": True,
             },
             config.prefix + "_dlls": {
-                "prot": "r",
+                "access": "r",
                 "code": dlls_cave,
             },
             config.prefix + "_import_names": {
-                "prot": "r",
+                "access": "r",
                 "code": import_names_cave,
             },
             config.prefix + "_imports": {
-                "prot": "rw",
+                "access": "rw",
                 "size": import_count * 4,
             },
         })
     else:
         codecaves[config.prefix + "_patch_init"] = {
-            "prot": "rx",
+            "access": "rx",
             "code": init_code,
             "export": True,
         }
@@ -231,7 +276,7 @@ if __name__ == "__main__":
         length = next(x for x in obj.sections if x.name == ".CRT$XTX").size // 4
         exit_code = f"5331db0f1f8400000000000f1f440000ff149d<codecave:{config.prefix}.CRT$XTX>4381fb{binascii.hexlify(length.to_bytes(4, 'little')).decode()}75f05bc3"
         codecaves[config.prefix + "_patch_exit"] = {
-            "prot": "rx",
+            "access": "rx",
             "code": exit_code,
             "export": True,
         }
@@ -267,7 +312,7 @@ if __name__ == "__main__":
         code = binhack["code"]
         obj_pos = code.find("obj:")
         while obj_pos != -1:
-            SEPARATORS = [' ', ')', ']', '}', '+']
+            SEPARATORS = [' ', ')', ']', '}', '>', '+']
             obj_end = obj_pos + len("obj:")
             while not code[obj_end] in SEPARATORS:
                 obj_end += 1

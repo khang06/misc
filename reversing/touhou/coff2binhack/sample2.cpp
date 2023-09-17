@@ -8,6 +8,8 @@ public:
 };
 
 extern "C" AsciiInf* g_ascii;
+extern "C" int g_sample_option_int;
+extern "C" const char* g_sample_option_str;
 
 static void* g_base = 0;
 
@@ -25,7 +27,8 @@ extern "C" void coff2binhack_init() {
     g_base = (void*)GetModuleHandleA(NULL);
 }
 
-extern "C" void hook_entry() {
+extern "C" int hook_entry() {
     float pos[3] = {0.0f, 0.0f, 0.0f};
-    g_ascii->drawText(pos, "Hello from C++!\nImage base: %p", g_base);
+    g_ascii->drawText(pos, "Hello from C++!\nImage base: %p\nTest option 1: %d\nTest option 2: %s", g_base, g_sample_option_int, g_sample_option_str);
+    return 1;
 }
