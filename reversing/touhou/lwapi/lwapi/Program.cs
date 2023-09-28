@@ -66,7 +66,7 @@ namespace lwapi
             using var stream = new GZipStream(http.Send(httpReq).Content.ReadAsStream(), CompressionMode.Decompress);
             using var reader = new StreamReader(stream);
             var ret = JsonConvert.DeserializeObject<AssetLoaderManifest>(reader.ReadToEnd());
-            System.IO.File.WriteAllText($"dump/{name}.json", JsonConvert.SerializeObject(ret)); // Yes, this is a really crappy way to format json
+            System.IO.File.WriteAllText($"dump/{name}.json", JsonConvert.SerializeObject(ret, Formatting.Indented)); // Yes, this is a really crappy way to format json
             Console.WriteLine($"Saved manifest to {name}.json");
             return ret;
         }
