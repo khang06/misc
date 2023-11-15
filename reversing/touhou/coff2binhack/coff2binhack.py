@@ -80,7 +80,7 @@ if __name__ == "__main__":
             idx += 1
             seckey = (idx - 1)
             self._Coff__relocs[seckey] = []
-            if section.offrel != 0 and (section.flags & coff.IMAGE_SCN_LNK_COMDAT) == 0:
+            if section.offrel != 0 and (section.flags & coff.IMAGE_SCN_LNK_COMDAT | coff.IMAGE_SCN_MEM_DISCARDABLE | coff.IMAGE_SCN_LNK_REMOVE) == 0:
                 curreloff = section.offrel
                 for i in range(section.numrels):
                     rel = coff.CoffReloc(data,curreloff,basesymoff, stroff,strend)
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     comdat_pool  = str()
     const_count = 0
     for i, section in enumerate(obj.sections):
-        if section.size == 0 or section.name.startswith("/") or section.name in [".drectve", ".llvm_addrsig"]:
+        if section.size == 0 or section.name.startswith("/") or section.name in [".drectve", ".llvm_addrsig", ".debug$S", ".debug$T"]:
             continue
 
         prot = str()
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         if section.flags & IMAGE_SCN_MEM_EXECUTE:
             prot += "x"
 
-        if section.flags & IMAGE_SCN_LNK_COMDAT and len(obj.symtables[i]) == 1:
+        if section.flags & IMAGE_SCN_LNK_COMDAT and i in obj.symtables and len(obj.symtables[i]) == 1:
             # Constant deduplication section
             # TODO: try to decode floats in a way that's roundtrippable
             section_to_cave[i] = (f"option:{config.prefix}_const_{const_count}", 0)
