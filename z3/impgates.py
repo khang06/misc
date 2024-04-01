@@ -35,7 +35,7 @@ def try_solve(gates: int, input_count: int, truth_table: dict):
     # For example, for a two input problem with 3 gates:
     # 0: in0, 1: in1, 2: r0, 3: r1: 4: r2
     # Using a BitVec is significantly faster than using Int
-    bits = math.ceil(math.log2(input_count + 2 + gates)) + 1
+    bits = math.ceil(math.log2(input_count + 2 + gates))
     a = [BitVec(f"a_{x}", bits) for x in range(gates)]
     b = [BitVec(f"b_{x}", bits) for x in range(gates)]
     r = [[Bool(f"r_{x}_{y}") for x in range(gates)]
@@ -44,22 +44,15 @@ def try_solve(gates: int, input_count: int, truth_table: dict):
     # Create output constraints
     output = [BitVec(f"output_{x}", bits) for x in range(output_count)]
     for x in output:
-        # Negative indices are invalid
-        s.add(x >= 0)
-
         # Only a limited number of possible circuit input or gate output references
-        s.add(x <= input_count + 2 + gates - 1)
+        s.add(ULE(x, input_count + 2 + gates - 1))
 
     # Create gate constraints
     for i in range(gates):
-        # Negative indices are invalid
-        s.add(a[i] >= 0)
-        s.add(b[i] >= 0)
-
         # Prevent an input from referencing the output of its own or any future gate
         # This heavily reduces the search space, but also prevents the solver from finding a solution to "Latch"
-        s.add(a[i] <= input_count + 2 + i - 1)
-        s.add(b[i] <= input_count + 2 + i - 1)
+        s.add(ULE(a[i], input_count + 2 + i - 1))
+        s.add(ULE(b[i], input_count + 2 + i - 1))
 
         # Generate gate expressions for each path
         # The gate input indices are solved globally, but additional constraints are needed per path
