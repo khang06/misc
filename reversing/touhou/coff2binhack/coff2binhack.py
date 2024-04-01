@@ -80,7 +80,7 @@ if __name__ == "__main__":
             idx += 1
             seckey = (idx - 1)
             self._Coff__relocs[seckey] = []
-            if section.offrel != 0 and (section.flags & coff.IMAGE_SCN_LNK_COMDAT | coff.IMAGE_SCN_MEM_DISCARDABLE | coff.IMAGE_SCN_LNK_REMOVE) == 0:
+            if section.offrel != 0 and (section.flags & (coff.IMAGE_SCN_LNK_COMDAT | coff.IMAGE_SCN_MEM_DISCARDABLE | coff.IMAGE_SCN_LNK_REMOVE)) == 0:
                 curreloff = section.offrel
                 for i in range(section.numrels):
                     rel = coff.CoffReloc(data,curreloff,basesymoff, stroff,strend)
@@ -88,6 +88,8 @@ if __name__ == "__main__":
                         if rel.type >= coff.IMAGE_REL_AMD64_REL32  and rel.type <= coff.IMAGE_REL_AMD64_REL32_5:
                             rel.size = 4
                             self._Coff__relocs[seckey].append(rel)
+                        else:
+                            raise Exception(f"Unhandled relocation type {rel.type}")
                     elif self._Coff__header.id == 0x14c:
                         if rel.type == coff.IMAGE_REL_I386_DIR32  or rel.type == coff.IMAGE_REL_I386_DIR32NB  or rel.type == coff.IMAGE_REL_I386_REL32 :
                             self._Coff__relocs[seckey].append(rel)
