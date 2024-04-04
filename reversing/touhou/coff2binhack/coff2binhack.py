@@ -58,6 +58,7 @@ class Config:
         self.binhacks = data.get("binhacks", {})
         self.imports = data.get("imports", {})
         self.options = data.get("options", {})
+        self.codecaves = data.get("codecaves", {})
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -80,7 +81,7 @@ if __name__ == "__main__":
             idx += 1
             seckey = (idx - 1)
             self._Coff__relocs[seckey] = []
-            if section.offrel != 0 and (section.flags & (coff.IMAGE_SCN_LNK_COMDAT | coff.IMAGE_SCN_MEM_DISCARDABLE | coff.IMAGE_SCN_LNK_REMOVE)) == 0:
+            if section.offrel != 0 and (section.flags & (coff.IMAGE_SCN_MEM_DISCARDABLE | coff.IMAGE_SCN_LNK_REMOVE)) == 0:
                 curreloff = section.offrel
                 for i in range(section.numrels):
                     rel = coff.CoffReloc(data,curreloff,basesymoff, stroff,strend)
@@ -102,7 +103,7 @@ if __name__ == "__main__":
     obj = Coff(config.input)
 
     options = config.options.copy()
-    codecaves = {}
+    codecaves = config.codecaves.copy()
     section_to_cave = dict() # (section number, (codecave/option string, offset))
     comdat_pool  = str()
     const_count = 0
