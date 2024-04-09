@@ -2,6 +2,7 @@ import sys
 import json5 # pip install json5
 import binascii
 import itertools
+import struct
 import coff
 from coff import Coff # pip install coff
 from coff import IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE, IMAGE_SCN_CNT_UNINITIALIZED_DATA, IMAGE_SCN_ALIGN_MASK, IMAGE_SCN_LNK_COMDAT
@@ -85,6 +86,7 @@ if __name__ == "__main__":
                 curreloff = section.offrel
                 for i in range(section.numrels):
                     rel = coff.CoffReloc(data,curreloff,basesymoff, stroff,strend)
+                    rel.symidx = struct.unpack('<L', data[(curreloff+4):(curreloff+8)])[0]
                     if self._Coff__header.id == 0x8664:
                         if rel.type >= coff.IMAGE_REL_AMD64_REL32  and rel.type <= coff.IMAGE_REL_AMD64_REL32_5:
                             rel.size = 4
@@ -189,7 +191,7 @@ if __name__ == "__main__":
     config.externs.update({k: Extern(v, 0) for k, v in COMMON_IMPORTS.items()})
     for sym in itertools.chain(*obj.symtables.values()):
         cave = section_to_cave[sym.sectnum - 1]
-        config.externs[sym.name] = Extern(cave[0], cave[1] + sym.value)
+        config.externs[sym.name if not sym.name.startswith(".") else f"{sym.name}{sym.sectnum}"] = Extern(cave[0], cave[1] + sym.value)
     
     if config.options:
         opt_cave = str()
@@ -291,7 +293,13 @@ if __name__ == "__main__":
             if reloc.name in config.externs:
                 extern = config.externs[reloc.name]
                 assert reloc.size == 4
-                offset = int.from_bytes(raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], byteorder="little") + extern.offset
+                if reloc.name.startswith("."):
+                    # Stupid symbol resolution hack zone
+                    # Sometimes clang will generate a block of data in .rdata with the symbol named ".rdata", then try to refer to it using that name
+                    sym = coff.CoffSymtable(raw_obj, obj._Coff__symoffset + 18 * reloc.symidx, obj._Coff__stroffset, obj._Coff__stroffset + obj._Coff__strsize)
+                    offset = int.from_bytes(raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], byteorder="little") + sym.value
+                else:
+                    offset = int.from_bytes(raw_obj[(section.offdata + reloc.vaddr):(section.offdata + reloc.vaddr + 4)], byteorder="little") + extern.offset
                 match reloc.type:
                     case coff.IMAGE_REL_I386_DIR32:
                         if offset == 0:
@@ -311,8 +319,7 @@ if __name__ == "__main__":
                 raise KeyError(f"Unhandled reloc {reloc}")
 
     # TODO: this is really jank and badly implemented
-    for binhack in config.binhacks.values():
-        code = binhack["code"]
+    def rewrite_obj_ref(code):
         obj_pos = code.find("obj:")
         while obj_pos != -1:
             SEPARATORS = [' ', ')', ']', '}', '>', '+']
@@ -328,7 +335,12 @@ if __name__ == "__main__":
             code = code[:obj_pos] + replacement + code[obj_end:]
             
             obj_pos = code.find("obj:")
-        binhack["code"] = code
+        return code
+
+    for binhack in config.binhacks.values():
+        binhack["code"] = rewrite_obj_ref(binhack["code"])
+    for codecave in config.codecaves.values():
+        codecave["code"] = rewrite_obj_ref(codecave["code"])
 
     output_dict = {
         "options": options,
