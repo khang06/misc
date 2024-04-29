@@ -9,6 +9,7 @@ from coff import IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE,
 
 # Common functions provided by thcrap
 COMMON_IMPORTS = {
+    # Allocation functions
     "_malloc": "th_malloc",
     "_calloc": "th_calloc",
     "_realloc": "th_realloc",
@@ -19,14 +20,19 @@ COMMON_IMPORTS = {
     "__aligned_realloc": "th_aligned_realloc",
     "__aligned_free": "th_aligned_free",
     "__aligned_msize": "th_aligned_msize",
+
+    # Memory functions
     "_memcpy": "th_memcpy",
     "_memmove": "th_memmove",
     "_memcmp": "th_memcmp",
     "_memset": "th_memset",
     "_memccpy": "th_memccpy",
+    "_memchr": "th_memchr",
     "_strdup": "th_strdup",
     "_strndup": "th_strndup",
     "_strdup_size": "th_strdup_size",
+
+    # String functions
     "_strcmp": "th_strcmp",
     "_strncmp": "th_strncmp",
     "_stricmp": "th_stricmp",
@@ -37,9 +43,138 @@ COMMON_IMPORTS = {
     "_strncat": "th_strncat",
     "_strlen": "th_strlen",
     "_strnlen_s": "th_strnlen_s",
+    "_strchr": "th_strchr",
+    "_strrchr": "th_strrchr",
+    "_strstr": "th_strstr",
+    "__strrev": "th_strrev",
+
+    # Formatting functions
     "_sprintf": "th_sprintf",
+    "_vsprintf": "th_vsprintf",
     "_snprintf": "th_snprintf",
+    "_vsnprintf": "th_vsnprintf",
     "_sscanf": "th_sscanf",
+    "_vsscanf": "th_vsscanf",
+    "_strftime": "th_strftime",
+
+    # Math functions
+    "_fabsf": "th_fabsf",
+    "_fabs": "th_fabs",
+    "_fmodf": "th_fmodf",
+    "_fmod": "th_fmod",
+    "_remainderf": "th_remainderf",
+    "_remainder": "th_remainder",
+    "_remquof": "th_remquof",
+    "_remquo": "th_remquo",
+    "_fmaf": "th_fmaf",
+    "_fma": "th_fma",
+    "_fmaxf": "th_fmaxf",
+    "_fmax": "th_fmax",
+    "_fminf": "th_fminf",
+    "_fmin": "th_fmin",
+    "_fdimf": "th_fdimf",
+    "_fdim": "th_fdim",
+    "_expf": "th_expf",
+    "_exp": "th_exp",
+    "_logf": "th_logf",
+    "_log": "th_log",
+    "_log10f": "th_log10f",
+    "_log10": "th_log10",
+    "_log2f": "th_log2f",
+    "_log2": "th_log2",
+    "_powf": "th_powf",
+    "_pow": "th_pow",
+    "_sqrtf": "th_sqrtf",
+    "_sqrt": "th_sqrt",
+    "_hypotf": "th_hypotf",
+    "_hypot": "th_hypot",
+    "_sinf": "th_sinf",
+    "_sin": "th_sin",
+    "_cosf": "th_cosf",
+    "_cos": "th_cos",
+    "_tanf": "th_tanf",
+    "_tan": "th_tan",
+    "_asinf": "th_asinf",
+    "_asin": "th_asin",
+    "_acosf": "th_acosf",
+    "_acos": "th_acos",
+    "_atanf": "th_atanf",
+    "_atan": "th_atan",
+    "_atan2f": "th_atan2f",
+    "_atan2": "th_atan2",
+    "_ceilf": "th_ceilf",
+    "_ceil": "th_ceil",
+    "_floorf": "th_floorf",
+    "_floor": "th_floor",
+    "_truncf": "th_truncf",
+    "_trunc": "th_trunc",
+    "_roundf": "th_roundf",
+    "_round": "th_round",
+    "_nearbyintf": "th_nearbyintf",
+    "_nearbyint": "th_nearbyint",
+
+    # Compiler intrinsics
+    "__ftol": "th_ftol",
+    "__ftol2": "th_ftol2",
+    "__ftol2_sse": "th_ftol2_sse",
+    "__CIfmod": "th_CIfmod",
+    "__CIexp": "th_CIexp",
+    "___libm_sse2_exp": "th_exp_sse2",
+    "___libm_sse2_expf": "th_expf_sse2",
+    "__CIlog": "th_CIlog",
+    "___libm_sse2_log": "th_log_sse2",
+    "___libm_sse2_logf": "th_logf_sse2",
+    "__CIlog10": "th_CIlog10",
+    "___libm_sse2_log10": "th_log10_sse2",
+    "___libm_sse2_log10f": "th_log10f_sse2",
+    "__CIpow": "th_CIpow",
+    "___libm_sse2_pow": "th_pow_sse2",
+    "___libm_sse2_powf": "th_powf_sse2",
+    "__CIsqrt": "th_CIsqrt",
+    "__CIsin": "th_CIsin",
+    "___libm_sse2_sin": "th_sin_sse2",
+    "___libm_sse2_sinf": "th_sinf_sse2",
+    "__CIcos": "th_CIcos",
+    "___libm_sse2_cos": "th_cos_sse2",
+    "___libm_sse2_cosf": "th_cosf_sse2",
+    "__CItan": "th_CItan",
+    "___libm_sse2_tan": "th_tan_sse2",
+    "___libm_sse2_tanf": "th_tanf_sse2",
+    "__CIasin": "th_CIasin",
+    "___libm_sse2_asin": "th_asin_sse2",
+    "___libm_sse2_asinf": "th_asinf_sse2",
+    "__CIacos": "th_CIacos",
+    "___libm_sse2_acos": "th_acos_sse2",
+    "___libm_sse2_acosf": "th_acosf_sse2",
+    "__CIatan": "th_CIatan",
+    "___libm_sse2_atan": "th_atan_sse2",
+    "___libm_sse2_atanf": "th_atanf_sse2",
+    "__CIatan2": "th_CIatan2",
+    "___libm_sse2_atan2": "th_atan2_sse2",
+    "__allmul": "th_allmul",
+    "__alldiv": "th_alldiv",
+    "__allrem": "th_allrem",
+    "__alldvrm": "th_alldvrm",
+    "__aulldiv": "th_aulldiv",
+    "__aullrem": "th_aullrem",
+    "__aulldvrm": "th_aulldvrm",
+    "__allshl": "th_allshl",
+    "__allshr": "th_allshr",
+    "__aullshr": "th_aullshr",
+
+    # Utility functions
+    "_qsort": "th_qsort",
+    "_bsearch": "th_bsearch",
+    "_rand_s": "th_rand_s",
+
+    # Windows functions (usually these get imported from DLLs but it doesn't hurt to add here)
+    "_Sleep": "th_Sleep",
+    "_GetLastError": "th_GetLastError",
+    "_GetProcAddress": "th_GetProcAddress",
+    "_GetModuleHandleA": "th_GetModuleHandleA",
+    "_GetModuleHandleW": "th_GetModuleHandleW",
+    "_QueryPerformanceCounter": "th_QueryPerformanceCounter",
+    "_QueryPerformanceFrequency": "th_QueryPerformanceFrequency",
 }
 
 class Extern:
@@ -107,11 +242,18 @@ if __name__ == "__main__":
     options = config.options.copy()
     codecaves = config.codecaves.copy()
     section_to_cave = dict() # (section number, (codecave/option string, offset))
-    comdat_pool  = str()
+    comdat_pool = str()
     const_count = 0
+    xcu_id = None
+    xtx_id = None
     for i, section in enumerate(obj.sections):
         if section.size == 0 or section.name.startswith("/") or section.name in [".drectve", ".llvm_addrsig", ".debug$S", ".debug$T"]:
             continue
+
+        if section.name == ".CRT$XCU":
+            xcu_id = i
+        elif section.name == ".CRT$XTX":
+            xtx_id = i
 
         prot = str()
         if section.flags & IMAGE_SCN_MEM_READ:
@@ -121,7 +263,7 @@ if __name__ == "__main__":
         if section.flags & IMAGE_SCN_MEM_EXECUTE:
             prot += "x"
 
-        if section.flags & IMAGE_SCN_LNK_COMDAT and i in obj.symtables and len(obj.symtables[i]) == 1:
+        if section.flags & IMAGE_SCN_LNK_COMDAT and not (section.flags & IMAGE_SCN_MEM_EXECUTE) and i in obj.symtables and len(obj.symtables[i]) == 1:
             # Constant deduplication section
             # TODO: try to decode floats in a way that's roundtrippable
             section_to_cave[i] = (f"option:{config.prefix}_const_{const_count}", 0)
@@ -160,27 +302,27 @@ if __name__ == "__main__":
                     "val": option_data,
                 }
                 const_count += 1
-        elif config.prefix + section.name in codecaves:
+        elif config.prefix + section.name + str(i) in codecaves:
             if "code" in codecaves[config.prefix + section.name]:
-                section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", len(codecaves[config.prefix + section.name]["code"]) // 2)
-                codecaves[config.prefix + section.name]["code"] += binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
+                section_to_cave[i] = (f"codecave:{config.prefix}{section.name}{i}", len(codecaves[config.prefix + section.name + str(i)]["code"]) // 2)
+                codecaves[config.prefix + section.name + str(i)]["code"] += binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
             else:
-                section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", codecaves[config.prefix + section.name]["size"])
-                codecaves[config.prefix + section.name]["size"] += section.size
+                section_to_cave[i] = (f"codecave:{config.prefix}{section.name}{i}", codecaves[config.prefix + section.name + str(i)]["size"])
+                codecaves[config.prefix + section.name + str(i)]["size"] += section.size
         else:
             #print(section, obj.relocs[i])
             if section.flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA:
-                codecaves[config.prefix + section.name] = {
+                codecaves[config.prefix + section.name + str(i)] = {
                     "access": prot,
                     "size": section.size
                 }
             else:
-                codecaves[config.prefix + section.name] = {
+                codecaves[config.prefix + section.name + str(i)] = {
                     "access": prot,
                     "code": binascii.hexlify(raw_obj[section.offdata:(section.offdata + section.size)]).decode()
                 }
-            section_to_cave[i] = (f"codecave:{config.prefix}{section.name}", 0)
-            config.externs[section.name] = Extern(f"codecave:{config.prefix}{section.name}", 0)
+            section_to_cave[i] = (f"codecave:{config.prefix}{section.name}{i}", 0)
+            config.externs[section.name] = Extern(f"codecave:{config.prefix}{section.name}{i}", 0)
     
     if len(comdat_pool) > 0:
         codecaves[config.prefix + "_comdat_pool"] = {
@@ -191,7 +333,7 @@ if __name__ == "__main__":
     config.externs.update({k: Extern(v, 0) for k, v in COMMON_IMPORTS.items()})
     for sym in itertools.chain(*obj.symtables.values()):
         cave = section_to_cave[sym.sectnum - 1]
-        config.externs[sym.name if not sym.name.startswith(".") else f"{sym.name}{sym.sectnum}"] = Extern(cave[0], cave[1] + sym.value)
+        config.externs[sym.name if not sym.name.startswith(".") else f"{sym.name}_sectref{sym.sectnum}"] = Extern(cave[0], cave[1] + sym.value)
     
     if config.options:
         opt_cave = str()
@@ -216,7 +358,7 @@ if __name__ == "__main__":
     if ".CRT$XCU" in config.externs:
         # See call_statics.asm
         length = next(x for x in obj.sections if x.name == ".CRT$XCU").size // 4
-        init_code += f"5331db0f1f8400000000000f1f440000ff149d<codecave:{config.prefix}.CRT$XCU>4381fb{binascii.hexlify(length.to_bytes(4, 'little')).decode()}75f05b"
+        init_code += f"5331db0f1f8400000000000f1f440000ff149d<codecave:{config.prefix}.CRT$XCU{xcu_id}>4381fb{binascii.hexlify(length.to_bytes(4, 'little')).decode()}75f05b"
     if "_coff2binhack_init" in config.externs:
         extern = config.externs["_coff2binhack_init"]
         init_code += f"e8([{extern.addr}]+{hex(extern.offset)})"
@@ -279,7 +421,7 @@ if __name__ == "__main__":
     if ".CRT$XTX" in config.externs:
         # See call_statics.asm
         length = next(x for x in obj.sections if x.name == ".CRT$XTX").size // 4
-        exit_code = f"5331db0f1f8400000000000f1f440000ff149d<codecave:{config.prefix}.CRT$XTX>4381fb{binascii.hexlify(length.to_bytes(4, 'little')).decode()}75f05bc3"
+        exit_code = f"5331db0f1f8400000000000f1f440000ff149d<codecave:{config.prefix}.CRT$XTX{xtx_id}>4381fb{binascii.hexlify(length.to_bytes(4, 'little')).decode()}75f05bc3"
         codecaves[config.prefix + "_patch_exit"] = {
             "access": "rx",
             "code": exit_code,
@@ -313,9 +455,10 @@ if __name__ == "__main__":
                             replacement = f"([{extern.addr}]+{hex(offset)})"
                     case _:
                         raise KeyError(f"Unhandled reloc type {hex(reloc.type)}")
-                code = codecaves[config.prefix + section.name]["code"]
-                codecaves[config.prefix + section.name]["code"] = code[:(reloc.vaddr * 2)] + replacement + code[(reloc.vaddr * 2 + 8):]
+                code = codecaves[config.prefix + section.name + str(seckey)]["code"]
+                codecaves[config.prefix + section.name + str(seckey)]["code"] = code[:(reloc.vaddr * 2)] + replacement + code[(reloc.vaddr * 2 + 8):]
             else:
+                print(config.externs)
                 raise KeyError(f"Unhandled reloc {reloc}")
 
     # TODO: this is really jank and badly implemented

@@ -29,6 +29,7 @@ extern "C" void coff2binhack_init() {
 
 extern "C" int hook_entry() {
     float pos[3] = {0.0f, 0.0f, 0.0f};
-    g_ascii->drawText(pos, "Hello from C++!\nImage base: %p\nTest option 1: %d\nTest option 2: %s", g_base, g_sample_option_int, g_sample_option_str);
+    if (g_ascii)
+        g_ascii->drawText(pos, "Hello from C++!\nImage base: %p\nTest option 1: %d\nTest option 2: %s", g_base, g_sample_option_int, g_sample_option_str);
     return 1;
 }
