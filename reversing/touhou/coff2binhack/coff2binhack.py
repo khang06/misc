@@ -195,6 +195,7 @@ class Config:
         self.imports = data.get("imports", {})
         self.options = data.get("options", {})
         self.codecaves = data.get("codecaves", {})
+        self.merge_comdat = data.get("merge_comdat", True)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -263,7 +264,7 @@ if __name__ == "__main__":
         if section.flags & IMAGE_SCN_MEM_EXECUTE:
             prot += "x"
 
-        if section.flags & IMAGE_SCN_LNK_COMDAT and not (section.flags & IMAGE_SCN_MEM_EXECUTE) and i in obj.symtables and len(obj.symtables[i]) == 1:
+        if config.merge_comdat and section.flags & IMAGE_SCN_LNK_COMDAT and not (section.flags & IMAGE_SCN_MEM_EXECUTE) and i in obj.symtables and len(obj.symtables[i]) == 1:
             # Constant deduplication section
             # TODO: try to decode floats in a way that's roundtrippable
             section_to_cave[i] = (f"option:{config.prefix}_const_{const_count}", 0)
