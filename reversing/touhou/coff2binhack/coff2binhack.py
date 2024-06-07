@@ -26,7 +26,7 @@ COMMON_IMPORTS = {
     "_memmove": "th_memmove",
     "_memcmp": "th_memcmp",
     "_memset": "th_memset",
-    "_memccpy": "th_memccpy",
+    "__memccpy": "th_memccpy",
     "_memchr": "th_memchr",
     "_strdup": "th_strdup",
     "_strndup": "th_strndup",
@@ -394,7 +394,7 @@ if __name__ == "__main__":
         add_opt_str("import_failed", "Failed to load import %s (code: 0x%p)")
         
         codecaves.update({
-            config.prefix + "_patch_init": {
+            config.prefix + "_patch_post_init": {
                 "access": "rx",
                 "code": import_code,
                 "export": True,
@@ -413,7 +413,7 @@ if __name__ == "__main__":
             },
         })
     else:
-        codecaves[config.prefix + "_patch_init"] = {
+        codecaves[config.prefix + "_patch_post_init"] = {
             "access": "rx",
             "code": init_code,
             "export": True,
@@ -433,10 +433,18 @@ if __name__ == "__main__":
         section = obj.sections[seckey]
         relocs = sorted(obj.relocs[seckey], key=lambda rel: rel.vaddr, reverse=True)
         for reloc in relocs:
-            if reloc.name in config.externs:
-                extern = config.externs[reloc.name]
+            reloc_name = reloc.name
+            if reloc_name.startswith("__imp_") and not reloc_name in config.externs:
+                stripped = reloc_name[6:]
+                if stripped in config.externs:
+                    if config.externs[stripped].offset == 0:
+                        config.externs[reloc_name] = Extern(f"{{p:<{config.externs[stripped].addr}>}}", -1)
+                    else:
+                        config.externs[reloc_name] = Extern(f"{{p:<{config.externs[stripped].addr}+{config.externs[stripped].offset}>}}", -1)
+            if reloc_name in config.externs:
+                extern = config.externs[reloc_name]
                 assert reloc.size == 4
-                if reloc.name.startswith("."):
+                if reloc_name.startswith("."):
                     # Stupid symbol resolution hack zone
                     # Sometimes clang will generate a block of data in .rdata with the symbol named ".rdata", then try to refer to it using that name
                     sym = coff.CoffSymtable(raw_obj, obj._Coff__symoffset + 18 * reloc.symidx, obj._Coff__stroffset, obj._Coff__stroffset + obj._Coff__strsize)
@@ -447,13 +455,17 @@ if __name__ == "__main__":
                     case coff.IMAGE_REL_I386_DIR32:
                         if offset == 0:
                             replacement = f"<{extern.addr}>"
+                        elif offset == -1:
+                            replacement = extern.addr
                         else:
-                            replacement = f"(<{extern.addr}>+{hex(offset)})"
+                            replacement = f"(<{extern.addr}>+{hex(offset & 0xFFFFFFFF)})"
                     case coff.IMAGE_REL_I386_REL32:
                         if offset == 0:
                             replacement = f"[{extern.addr}]"
+                        elif offset == -1:
+                            raise Exception("Can't use constpool for a relative reloc")
                         else:
-                            replacement = f"([{extern.addr}]+{hex(offset)})"
+                            replacement = f"([{extern.addr}]+{hex(offset & 0xFFFFFFFF)})"
                     case _:
                         raise KeyError(f"Unhandled reloc type {hex(reloc.type)}")
                 code = codecaves[config.prefix + section.name + str(seckey)]["code"]
@@ -471,12 +483,19 @@ if __name__ == "__main__":
             while not code[obj_end] in SEPARATORS:
                 obj_end += 1
 
-            # TODO: figure out how to implement this with the newer codecave reference syntax
             extern = config.externs[code[(obj_pos + len("obj:")):obj_end]]
-            replacement = extern.addr
+            match code[obj_pos - 1] + code[obj_end]:
+                case "<>":
+                    replacement = f"<{extern.addr}>"
+                case "[]":
+                    replacement = f"[{extern.addr}]"
+                case x:
+                    raise KeyError(f"Unhandled delimiter pair {x}")
+                
             if extern.offset != 0:
-                replacement += f"+{hex(extern.offset)}"
-            code = code[:obj_pos] + replacement + code[obj_end:]
+                replacement = "(" + replacement
+                replacement += f"+{hex(extern.offset)})"
+            code = code[:(obj_pos - 1)] + replacement + code[(obj_end + 1):]
             
             obj_pos = code.find("obj:")
         return code
