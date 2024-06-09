@@ -1,0 +1,7 @@
+firmware/
+config.json
+upgrade.exe
+
+main.bin
+main.o
+main.map
