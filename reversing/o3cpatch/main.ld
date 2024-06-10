@@ -11,7 +11,10 @@ handle_usb_cmd_2_ret = 0x9CB8;
 g_key_single_count = 0x20000490;
 g_key_analog = 0x2000EA40;
 g_key_color_state = 0x20012D4C;
-g_button_state = 0x2000DA38;
+g_key_pressed = 0x2000DA38;
+
+g_menu_secs = 0x20000410;
+g_menu_ms = 0x20000414;
 
 screen_layer_update_menu_hook = 0x66FC;
 screen_layer_update_no_menu = 0x671A;
@@ -24,15 +27,14 @@ menu_tick_fb_clear = 0x8D96;
 ms_callback_hook = 0xD6E0;
 ms_callback_orig = 0x2979E;
 
-draw_rect = 0x50EA;
 draw_number = 0x5DCA;
+draw_ascii_char = 0x59B0;
 
 MEMORY {
-  FLASH : ORIGIN = custom_flash_base, LENGTH = 0x3F00
-  RAM : ORIGIN = custom_ram_base, LENGTH = 0x4000
+	FLASH : ORIGIN = custom_flash_base, LENGTH = 0x3F00
+	RAM : ORIGIN = custom_ram_base, LENGTH = 0x4000
 }
 
-# TODO: Initialize .data and .bss somehow
 SECTIONS {
 	.text : {
 		. = ALIGN(4);
