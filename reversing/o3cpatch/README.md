@@ -4,9 +4,11 @@ Firmware mods for the SayoDevice O3C.
 
 Super experimental, not my fault if your keypad explodes. **Use at your own risk!**
 
-![](https://gist.github.com/assets/11239786/a8289030-ab49-4be8-9969-9eade0d90aaf)
-![](https://gist.github.com/assets/11239786/149beb47-4804-45e9-b916-20fb0c3d7d17)
-![](https://gist.github.com/assets/11239786/36a65686-0b3f-4499-bb43-f64266ccff9e)
+![image](https://github.com/khang06/misc/assets/11239786/cd9ce06c-08e5-4ba2-89ea-f4f7fb882ee9)
+![image](https://github.com/khang06/misc/assets/11239786/1ccbcf73-f2ca-40e5-b2f2-795e35e39914)
+![image](https://github.com/khang06/misc/assets/11239786/cbf3d740-d516-4129-9aa4-1912a76820af)
+
+[BG source](https://safebooru.donmai.us/posts/2748388)
 
 ## Features
 * USB command to retrieve raw analog data and temporarily change LED colors ([modified McOsu demo](https://files.catbox.moe/sgqusr.mp4))
