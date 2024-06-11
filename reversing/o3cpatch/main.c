@@ -15,16 +15,23 @@ typedef struct {
     uint32_t text[11];      // 0x14
 } ui_layer_t;
 
+typedef struct {
+    uint32_t* text;
+    void (*func)();
+} menu_item_t;
+
 extern uint32_t g_key_single_count[3];
 extern uint8_t g_key_analog[3];
 extern uint8_t g_key_pressed[3];
+
+extern menu_item_t g_menu_items[];
+extern uint8_t g_menu_item_count;
 
 void draw_number(uint16_t* framebuffer, int32_t x, int32_t y, uint32_t num, uint32_t max_nums, uint16_t color, uint16_t bg_color, uint32_t font_size, uint8_t transparent);
 void draw_ascii_char(uint16_t* framebuffer, int32_t x, int32_t y, uint16_t char_idx, uint16_t color, uint16_t bg_color, uint32_t font_size, uint8_t transparent);
 
 void ms_callback_orig();
-
-const uint32_t o3cpatch_str[] = U"o3cpatch!";
+void menu_device();
 
 __attribute__((naked)) void handle_reset_custom() {
     __asm__(
@@ -190,7 +197,7 @@ static void plasma(uint16_t* fb, ui_layer_t* layer) {
 			uint32_t s4 = not_sin((((x + y) * 2768 + (t >> 3)) >> 2));
 
 			uint8_t sum = (s1 + s2 + s3 + s4) >> 10;
-			fb[x + 160 * y] = ((sum >> 3) << 11) | ((sum >> 2) << 4) | (sum >> 3);
+			fb[x + 160 * y] = ((sum >> 3) << 11) | (sum >> 2) | (sum >> 3);
 		}
 	}
 }
@@ -290,4 +297,16 @@ __attribute__((naked)) void screen_layer_update_menu_custom() {
         "jal    ra, menu_tick;"
         "j      screen_layer_update_ret;"
     );
+}
+
+void menu_device_info_custom() {
+    g_menu_items[0].text = U"Back >>";
+    g_menu_items[1].text = U"o3cpatch|khangaroo";
+    g_menu_items[2].text = U"built "__DATE__;
+    g_menu_items[3].text = U"fw: v1.4 20240511";
+
+    for (int i = 0; i < 4; i++)
+        g_menu_items[i].func = menu_device;
+
+    g_menu_item_count = 4;
 }

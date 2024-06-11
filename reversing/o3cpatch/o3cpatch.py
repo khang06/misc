@@ -72,8 +72,8 @@ patch(0x2DFA0, b"\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\x09\x98\xec\xf8\x42\x7
 # Patch reset vector to run custom init code
 patch_j(0x4000, syms["handle_reset_custom"])
 
-# Patch device info to inject o3cpatch string
-patch(syms["sayodevice_url_load"], encode_li(13, syms["o3cpatch_str"]))
+# Patch device info to run custom menu instead
+patch_j(syms["menu_device_info"], syms["menu_device_info_custom"])
 
 # Patch command handler to inject custom USB command
 patch_j(syms["handle_usb_cmd_2_hook"], syms["get_analog_key"])
