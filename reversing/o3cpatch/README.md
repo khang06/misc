@@ -18,3 +18,4 @@ Super experimental, not my fault if your keypad explodes. **Use at your own risk
     * (ID 17) Keys per second counter
     * (ID 18) Demoscene-ish plasma effect
     * (ID 19) Keypad uptime
+* Disable boot screen
