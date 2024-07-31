@@ -1,14 +1,12 @@
 # o3cpatch
 
-Firmware mods for the SayoDevice O3C.
+Firmware mods for the SayoDevice O3C. Use [o3cpatch-web](https://khang06.github.io/o3cpatch-web) for a browser-based patch interface.
 
 Super experimental, not my fault if your keypad explodes. **Use at your own risk!**
 
-![image](https://github.com/khang06/misc/assets/11239786/cd9ce06c-08e5-4ba2-89ea-f4f7fb882ee9)
-![image](https://github.com/khang06/misc/assets/11239786/1ccbcf73-f2ca-40e5-b2f2-795e35e39914)
+![o3cpatch1](https://github.com/user-attachments/assets/18c6a00d-6839-4da1-aede-9686996024ef)
+![o3cpatch2](https://github.com/user-attachments/assets/e04e4ade-18e4-4cac-b14c-0bfb1d531c2f)
 ![image](https://github.com/khang06/misc/assets/11239786/cbf3d740-d516-4129-9aa4-1912a76820af)
-
-[BG source](https://safebooru.donmai.us/posts/2748388)
 
 ## Features
 * USB command to retrieve raw analog data and temporarily change LED colors ([modified McOsu demo](https://files.catbox.moe/sgqusr.mp4))
@@ -19,3 +17,4 @@ Super experimental, not my fault if your keypad explodes. **Use at your own risk
     * (ID 18) Demoscene-ish plasma effect
     * (ID 19) Keypad uptime
 * Disable boot screen
+* Custom fonts
