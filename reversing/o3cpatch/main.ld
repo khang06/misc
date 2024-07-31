@@ -1,8 +1,9 @@
 target_fw = 20240709;
-custom_flash_base = 0x2B000;
-custom_ram_base = 0x20013600;
+custom_flash_base = 0x2AEA8;
+custom_ram_base = 0x200134E8;
 
 handle_reset_orig = 0x5042;
+curbrk_init = 0x2AE10;
 
 handle_usb_cmd_2_hook = 0xA334;
 handle_usb_cmd_2_fail = 0x9F56;
@@ -34,9 +35,13 @@ ms_callback_orig = 0x2A9F6;
 draw_number = 0x5EAC;
 draw_ascii_char = 0x5A92;
 
+g_font = 0x19B58;
+
+_end = _ebss;
+
 MEMORY {
-	FLASH : ORIGIN = custom_flash_base, LENGTH = 0x2F00
-	RAM : ORIGIN = custom_ram_base, LENGTH = 0x4000
+	FLASH : ORIGIN = custom_flash_base, LENGTH = 0x2DF80 - custom_flash_base
+	RAM : ORIGIN = custom_ram_base, LENGTH = 0x2001F800 - custom_ram_base
 }
 
 SECTIONS {

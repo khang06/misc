@@ -88,6 +88,9 @@ patch_j(syms["menu_tick_fb_clear"], syms["menu_tick_fb_clear"] + 4)
 # Patch TIM6's IRQ handler for keys per second display
 patch_jal_ra(syms["ms_callback_hook"], syms["ms_callback_custom"])
 
+# Patch heap base to not overlap with custom .data/.bss
+patch(syms["curbrk_init"], syms["_end"].to_bytes(4, "little"))
+
 # Inject custom code
 with open("main.bin", "rb") as main:
     patch(syms["custom_flash_base"], main.read())
