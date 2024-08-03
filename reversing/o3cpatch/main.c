@@ -303,7 +303,7 @@ void menu_device_info_custom() {
     g_menu_items[0].text = U"Back >>";
     g_menu_items[1].text = U"o3cpatch|khangaroo";
     g_menu_items[2].text = U"built "__DATE__;
-    g_menu_items[3].text = U"fw: v1.5 20240709";
+    g_menu_items[3].text = U"fw: v1.5 20240803";
 
     for (int i = 0; i < 4; i++)
         g_menu_items[i].func = menu_device;
