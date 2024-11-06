@@ -12,9 +12,9 @@ Super experimental, not my fault if your keypad explodes. **Use at your own risk
 * USB command to retrieve raw analog data and temporarily change LED colors ([modified McOsu demo](https://files.catbox.moe/sgqusr.mp4))
 * Custom menu backgrounds using screen layer 1
 * New widgets/built-in components
-    * (ID 16) Custom horizontal key pressure display
-    * (ID 17) Keys per second counter
-    * (ID 18) Demoscene-ish plasma effect
-    * (ID 19) Keypad uptime
+    * (ID 17) Custom horizontal key pressure display
+    * (ID 18) Keys per second counter
+    * (ID 19) Demoscene-ish plasma effect
+    * (ID 20) Keypad uptime
 * Disable boot screen
 * Custom fonts
