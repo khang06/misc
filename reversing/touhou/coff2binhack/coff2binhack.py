@@ -412,7 +412,7 @@ if __name__ == "__main__":
                 "size": import_count * 4,
             },
         })
-    else:
+    elif init_code != "c3":
         codecaves[config.prefix + "_patch_post_init"] = {
             "access": "rx",
             "code": init_code,
