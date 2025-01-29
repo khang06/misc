@@ -1,0 +1,16 @@
+>mode,core
+>type,common
+
+#include "core_mod.class"
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// you should keep these defaults cfg in core_mod and always include them in your mods this is to prevent the game from hitching when it needs to execute them
+rawfile,mod.cfg
+rawfile,cp_mod.cfg
+rawfile,mp_mod.cfg
+rawfile,zm_mod.cfg
+// note that if you make changes in the cfg, you need to build this fastfile for the game to get the latest
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+rawfile,ui/uieditor/menus/craft/emblemeditor/emblemeditor.luac
+rawfile,ui/uieditor/menus/craft/emblemeditor/emblemeditorog.luac

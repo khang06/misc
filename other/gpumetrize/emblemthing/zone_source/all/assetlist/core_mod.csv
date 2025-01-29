@@ -1,0 +1,7 @@
+rawfile,cp_mod.cfg
+rawfile,mod.cfg
+rawfile,mp_mod.cfg
+rawfile,ui/uieditor/menus/craft/emblemeditor/emblemeditor.luac
+rawfile,ui/uieditor/menus/craft/emblemeditor/emblemeditorog.luac
+rawfile,zm_mod.cfg
+keyvaluepairs,core_mod

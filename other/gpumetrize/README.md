@@ -1,0 +1,4 @@
+# GPUmetrize
+My experimental port of [Geometrize](https://www.geometrize.co.uk/) to the GPU. This tries to use the extra parallelization to do a wider search per shape in order to get better results for relatively low shape counts. Currently, this repo is set up to generate BO3 emblems (though they look really bad 90% of the time).
+
+Input images are expected to be cropped to an aspect ratio of 1.65 and resized to 256x256. The main exe spits out a bunch of commands that have to be pasted into `emblemthing/ui/uieditor/menus/craft/emblemeditor/emblemeditor.lua`, which then has to be compiled with HKSC. After that, pressing I in the emblem editor with the mod loaded should import it.

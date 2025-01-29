@@ -1,0 +1,10 @@
+index,type,name,resident,streamed,parentStack
+1,string,,0,0,||assetlist
+2,rawfile,mod.cfg,17,0,|zone_source/core_mod.zone|csv
+3,rawfile,cp_mod.cfg,16,0,|zone_source/core_mod.zone|csv
+4,rawfile,mp_mod.cfg,16,0,|zone_source/core_mod.zone|csv
+5,rawfile,zm_mod.cfg,16,0,|zone_source/core_mod.zone|csv
+6,rawfile,ui/uieditor/menus/craft/emblemeditor/emblemeditor.lua,24922,0,|ui/uieditor/menus/craft/emblemeditor/emblemeditor.luac|rawfile|zone_source/core_mod.zone|csv
+7,rawfile,ui/uieditor/menus/craft/emblemeditor/emblemeditorog.lua,54216,0,|ui/uieditor/menus/craft/emblemeditor/emblemeditorog.luac|rawfile|zone_source/core_mod.zone|csv
+8,keyvaluepairs,core_mod,1093,0,||assetlist
+9,assetlist,,112,0,
