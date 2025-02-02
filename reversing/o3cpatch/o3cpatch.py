@@ -45,7 +45,7 @@ def encode_bne(src, dst, rs1, rs2):
         ((offset & 0x1000) << 19)
     ).to_bytes(4, "little")
 
-with open("firmware/app_O3C_v1.5_20240803.bin", "rb") as file:
+with open("firmware/app_O3C_v1.6_20241208.bin", "rb") as file:
     fw = bytearray(new_cipher().decrypt(file.read()))
 
 def patch(addr, data):
