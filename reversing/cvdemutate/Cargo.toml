@@ -1,0 +1,11 @@
+[package]
+name = "cvdemutate"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pelite = "0.10.0"
+zydis = { version = "4.1.1", features = [
+    "encoder",
+    "std",
+], default-features = false }
