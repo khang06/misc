@@ -1,0 +1,11 @@
+[package]
+name = "dedecomp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+byteorder = "1"
+png = "0.17.14"
+
+[build-dependencies]
+cc = "1.0"
