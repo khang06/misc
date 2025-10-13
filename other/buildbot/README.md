@@ -1,0 +1,2 @@
+# buildbot
+This is a basic Discord bot/CI nightly artifact handler that I wrote for one of my projects, which asks if a build should be approved for upload in a Discord channel before extracting and pushing it to an updater. Since Github doesn't let me set proper push permissions on the master branch for private repositories, I wanted a way to prevent someone from pushing a malicious update if their account gets compromised.
