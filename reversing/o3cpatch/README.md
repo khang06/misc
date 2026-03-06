@@ -1,5 +1,7 @@
 # o3cpatch
 
+**INCOMPATIBLE WITH NEWER HARDWARE REVISIONS. YOU WILL BRICK IF YOU TRY TO FLASH THIS ON THEM**
+
 Firmware mods for the SayoDevice O3C. Use [o3cpatch-web](https://khang06.github.io/o3cpatch-web) for a browser-based patch interface.
 
 Super experimental, not my fault if your keypad explodes. **Use at your own risk!**
