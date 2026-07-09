@@ -1,0 +1,2 @@
+# woahmic
+Some example code I wrote around April 2025 for using [WO Mic](https://wolicheng.com/womic/)'s virtual microphone driver to play arbitrary audio. Pretty useful for making a virtual mic without test signing!
