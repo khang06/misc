@@ -1,0 +1,9 @@
+[package]
+name = "ncopusmux"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bytemuck = { version = "1.25.2", features = ["derive"] }
+byteorder = "1.5.0"
+opus-pure = "0.2.1"
