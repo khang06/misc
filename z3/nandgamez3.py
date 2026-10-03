@@ -13,6 +13,11 @@ def op_to_str(input_count: int, op: int):
     else:
         return f"r{op - input_count}"
 
+def mux(selector, sources):
+    expr = sources[0]
+    for i in range(1, len(sources)):
+        expr = If(selector == i, sources[i], expr)
+    return expr
 
 def try_solve(gates: int, input_count: int, truth_table: dict):
     start = time.time()
@@ -20,8 +25,10 @@ def try_solve(gates: int, input_count: int, truth_table: dict):
 
     # Create a variable for each input for each path
     s = Solver()
-    input = [[Bool(f"input_{x}_{y}") for x in range(input_count)]
-             for y in range(len(truth_table))]
+    input = [
+        [BoolVal(bit) for bit in row]
+        for row in truth_table.keys()
+    ]
 
     # Create input and output variables for each gate
     # The inputs are numbers as they are indices into circuit inputs or past outputs
@@ -29,10 +36,28 @@ def try_solve(gates: int, input_count: int, truth_table: dict):
     # 0: in0, 1: in1, 2: r0, 3: r1: 4: r2
     # Using a BitVec is significantly faster than using Int
     bits = math.ceil(math.log2(input_count + gates))
+    rows = list(truth_table.items())
+    width = len(rows)
     a = [BitVec(f"a_{x}", bits) for x in range(gates)]
     b = [BitVec(f"b_{x}", bits) for x in range(gates)]
-    r = [[Bool(f"r_{x}_{y}") for x in range(gates)]
-         for y in range(len(truth_table))]
+    r = [BitVec(f"r_{x}", width) for x in range(gates)]
+
+    # Precompute input and output bitvectors
+    input_tt = []
+    for inp in range(input_count):
+        value = 0
+        for row, (ins, _) in enumerate(rows):
+            if ins[inp]:
+                value |= 1 << row
+        input_tt.append(BitVecVal(value, width))
+
+    output_tt = []
+    for out in range(output_count):
+        value = 0
+        for row, (_, outs) in enumerate(rows):
+            if outs[out]:
+                value |= 1 << row
+        output_tt.append(BitVecVal(value, width))
 
     # Create output constraints
     output = [BitVec(f"output_{x}", bits) for x in range(output_count)]
@@ -42,40 +67,42 @@ def try_solve(gates: int, input_count: int, truth_table: dict):
 
     # Create gate constraints
     for i in range(gates):
+        sources = input_tt + r[:i]
+        wire = input_count + i
+
         # Prevent an input from referencing the output of its own or any future gate
         # This heavily reduces the search space, but also prevents the solver from finding a solution to "Latch"
-        s.add(ULE(a[i], input_count + i - 1))
-        s.add(ULE(b[i], input_count + i - 1))
+        s.add(ULE(a[i], wire - 1))
+        s.add(ULE(b[i], wire - 1))
+
+        # NAND is communative, so this breaks symmetry
+        s.add(ULE(a[i], b[i]))
 
         # Generate gate expressions for each path
         # The gate input indices are solved globally, but additional constraints are needed per path
         # This will constrain the per-path gate outputs to read the inputs specified by the input indices and perform a NAND
-        for j in range(len(truth_table)):
-            a_expr = False
-            b_expr = False
-            for k in range(input_count):
-                a_expr = If(a[i] == k, input[j][k], a_expr)
-                b_expr = If(b[i] == k, input[j][k], b_expr)
-            for k in range(i):
-                a_expr = If(a[i] == k + input_count, r[j][k], a_expr)
-                b_expr = If(b[i] == k + input_count, r[j][k], b_expr)
-            s.add(r[j][i] == Not(And(a_expr, b_expr)))
+        av = mux(a[i], sources)
+        bv = mux(b[i], sources)
+        s.add(r[i] == ~(av & bv))
 
-    for i, (k, v) in enumerate(truth_table.items()):
-        # Set the path inputs to the ones from the truth table
-        for j in range(input_count):
-            s.add(input[i][j] == k[j])
+        # Ensure that all gates before this one are used at least once
+        uses = []
+        for j in range(i + 1, gates):
+            uses.append(a[j] == wire)
+            uses.append(b[j] == wire)
+        for out in output:
+            uses.append(out == wire)
+        s.add(Or(uses))
 
-        # Create the output expressions
-        # The outputs act exactly like the gate input indices, except their outputs are constrained per-path according to the truth table
-        for j in range(output_count):
-            output_expr = False
-            for k in range(input_count):
-                output_expr = If(output[j] == k, input[i][k], output_expr)
-            for k in range(gates):
-                output_expr = If(output[j] == k +
-                                 input_count, r[i][k], output_expr)
-            s.add(output_expr == v[j])
+        # Ensure that no transition is redundant
+        for src in input_tt:
+            s.add(r[i] != src)
+        for j in range(i):
+            s.add(r[i] != r[j])
+
+    sources = input_tt + r
+    for j in range(output_count):
+        s.add(mux(output[j], sources) == output_tt[j])
 
     '''
     # Used to test other SMT solvers when Z3 is too slow
