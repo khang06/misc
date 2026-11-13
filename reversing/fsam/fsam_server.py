@@ -1,9 +1,21 @@
+# on an unrooted router:
+# dump /tmp/cert/fullchain.pem from another BHRx router and throw it into this dir
+# point sonx-fp.mediasearch.verizon.com to this server via a custom dns server (e.g. adguard home)
+# setting a custom host override in the dedicated "dns server" panel doesn't work
+# this works because CURLOPT_SSL_VERIFYHOST is 0 in arc_cloud and the cert bundle trusts Fios BHR CA,
+# which every router has a router-specific cert for that's allowed to do server auth for some reason
+# (no, the non-unique myfiosgateway.com cert doesn't work for this)
+# (no, emudhra also doesn't work for this)
+
+# otherwise, on a rooted router:
+# set SSL to False, then run this on the router:
 # uci set arc_cloud.cloud.ARC_OWL_CLOUD_FSAM_URL='http://<ip>:18080'
 # lxc-stop -k fsam
 # lxc-start fsam
 
 import hashlib
 import json
+import ssl
 import zlib
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -11,7 +23,8 @@ from pathlib import Path
 
 import requests
 
-LISTEN = ("0.0.0.0", 18080)
+SSL = True
+LISTEN = ("0.0.0.0", 55668 if SSL else 18080)
 
 CAPTURE_DIR = Path("captures")
 CAPTURE_DIR.mkdir(exist_ok=True)
@@ -71,5 +84,23 @@ class FSAMHandler(BaseHTTPRequestHandler):
         pass
 
 
-print(f"listening on http://{LISTEN[0]}:{LISTEN[1]}")
-ThreadingHTTPServer(LISTEN, FSAMHandler).serve_forever()
+class LoggingHTTPServer(ThreadingHTTPServer):
+    def get_request(self):
+        try:
+            sock, address = super().get_request()
+        except OSError as exc:
+            print(f"TLS/accept failed: {exc!r}", flush=True)
+            raise
+        if isinstance(sock, ssl.SSLSocket):
+            print(f"TLS OK from {address}: {sock.version()} {sock.cipher()[0]}", flush=True)
+        return sock, address
+
+
+server = LoggingHTTPServer(LISTEN, FSAMHandler)
+if SSL:
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain("fullchain.pem")
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+
+print(f"listening on {'https' if SSL else 'http'}://{LISTEN[0]}:{LISTEN[1]}")
+server.serve_forever()
