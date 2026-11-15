@@ -15,6 +15,7 @@ compressed = bytearray(data[-8 - compressed_len:-8])
 if compressed_len == decompressed_len:
     decompressed = compressed
 else:
+    # yes, they really did try to obfuscate the compression by changing the header and footer
     compressed[:6] = bytes.fromhex("FD377A585A00")
     compressed[-2:] = b"YZ"
     decompressed = lzma.decompress(compressed, format=lzma.FORMAT_XZ)
