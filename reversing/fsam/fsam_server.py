@@ -10,8 +10,12 @@
 # otherwise, on a rooted router:
 # set SSL to False, then run this on the router:
 # uci set arc_cloud.cloud.ARC_OWL_CLOUD_FSAM_URL='http://<ip>:18080'
-# lxc-stop -k fsam
-# lxc-start fsam
+
+# you can also log non-fsam verizon stuff from arc_cloud by redirecting sonx.mediasearch.verizon.com too
+# or on a rooted router:
+# uci set arc_cloud.cloud.ARC_OWL_CLOUD_Broker_Address='http://<ip>'
+# uci set arc_cloud.cloud.ARC_OWL_CLOUD_Broker_Port='18080'
+
 
 import hashlib
 import json
@@ -36,6 +40,12 @@ class FSAMHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def do_POST(self):
+        self._handle_request()
+
+    def do_GET(self):
+        self._handle_request()
+
+    def _handle_request(self):
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
 
@@ -45,33 +55,33 @@ class FSAMHandler(BaseHTTPRequestHandler):
 
         safe_path = self.path.strip("/").replace("/", "_") or "root"
         stem = CAPTURE_DIR / f"{stamp}_{safe_path}_{digest[:12]}"
-
-        # exact bytes arc_cloud was about to send
-        stem.with_suffix(".deflate").write_bytes(body)
+        stem.with_suffix(".headers").write_text(
+            self.headers.as_string(), encoding="utf-8"
+        )
 
         print(f"\n{now.isoformat()}")
         print(f"{self.command} {self.path}")
         print(f"compressed: {len(body)} bytes")
         print(f"sha256: {digest}")
 
-        try:
-            raw = zlib.decompress(body)
-            stem.with_suffix(".decoded").write_bytes(raw)
-
-            # arc_cloud appears to compress the null terminator too?
-            json_bytes = raw.rstrip(b"\x00")
-
+        if body:
             try:
-                obj = json.loads(json_bytes)
-                stem.with_suffix(".json").write_text(
-                    json.dumps(obj, indent=2),
-                    encoding="utf-8",
-                )
-                print(json.dumps(obj, indent=2))
+                raw = zlib.decompress(body)
+
+                # arc_cloud appears to compress the null terminator too?
+                json_bytes = raw.rstrip(b"\x00")
+
+                try:
+                    obj = json.loads(json_bytes)
+                    stem.with_suffix(".json").write_text(
+                        json.dumps(obj, indent=2),
+                        encoding="utf-8",
+                    )
+                    print(json.dumps(obj, indent=2))
+                except Exception as e:
+                    print(f"decoded body isn't JSON: {e}")
             except Exception as e:
-                print(f"decoded body isn't JSON: {e}")
-        except Exception as e:
-            print(f"zlib decode failed: {e}")
+                print(f"zlib decode failed: {e}")
 
         msg = b'{"result":"OK"}'
         self.send_response(200)
@@ -84,19 +94,7 @@ class FSAMHandler(BaseHTTPRequestHandler):
         pass
 
 
-class LoggingHTTPServer(ThreadingHTTPServer):
-    def get_request(self):
-        try:
-            sock, address = super().get_request()
-        except OSError as exc:
-            print(f"TLS/accept failed: {exc!r}", flush=True)
-            raise
-        if isinstance(sock, ssl.SSLSocket):
-            print(f"TLS OK from {address}: {sock.version()} {sock.cipher()[0]}", flush=True)
-        return sock, address
-
-
-server = LoggingHTTPServer(LISTEN, FSAMHandler)
+server = ThreadingHTTPServer(LISTEN, FSAMHandler)
 if SSL:
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain("fullchain.pem")
