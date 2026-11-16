@@ -25,16 +25,11 @@ from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import requests
-
 SSL = True
 LISTEN = ("0.0.0.0", 55668 if SSL else 18080)
 
 CAPTURE_DIR = Path("captures")
 CAPTURE_DIR.mkdir(exist_ok=True)
-
-session = requests.Session()
-
 
 class FSAMHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
