@@ -56,7 +56,7 @@ class FSAMHandler(BaseHTTPRequestHandler):
         safe_path = self.path.strip("/").replace("/", "_") or "root"
         stem = CAPTURE_DIR / f"{stamp}_{safe_path}_{digest[:12]}"
         stem.with_suffix(".headers").write_text(
-            self.headers.as_string(), encoding="utf-8"
+            f"{self.requestline}\n{self.headers.as_string()}", encoding="utf-8"
         )
 
         print(f"\n{now.isoformat()}")
